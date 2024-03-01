@@ -53,6 +53,7 @@ class Ui_MainWindow(object):
         self.checkBox_Raw.setMinimumSize(QtCore.QSize(70, 0))
         self.checkBox_Raw.setMaximumSize(QtCore.QSize(110, 30))
         self.checkBox_Raw.setObjectName("checkBox_Raw")
+        self.checkBox_Raw.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderRaw.addWidget(self.checkBox_Raw)
         self.horizontalSlider_Raw = QtWidgets.QSlider(self.centralwidget)
         self.horizontalSlider_Raw.setToolTip("Change transparency of Raw Image")
@@ -67,6 +68,7 @@ class Ui_MainWindow(object):
         self.horizontalSlider_Raw.setSliderPosition(100)
         self.horizontalSlider_Raw.setOrientation(QtCore.Qt.Horizontal)
         self.horizontalSlider_Raw.setObjectName("horizontalSlider_Raw")
+        self.horizontalSlider_Raw.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderRaw.addWidget(self.horizontalSlider_Raw)
         self.sliders.addLayout(self.sliderRaw)
         self.sliderFiltered = QtWidgets.QHBoxLayout()
@@ -76,6 +78,7 @@ class Ui_MainWindow(object):
         self.checkBox_Filtered.setMinimumSize(QtCore.QSize(70, 0))
         self.checkBox_Filtered.setMaximumSize(QtCore.QSize(110, 30))
         self.checkBox_Filtered.setObjectName("checkBox_Filtered")
+        self.checkBox_Filtered.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderFiltered.addWidget(self.checkBox_Filtered)
         self.horizontalSlider_Filtered = QtWidgets.QSlider(self.centralwidget)
         self.horizontalSlider_Filtered.setToolTip("Change transparency of Filtered Image")
@@ -90,6 +93,7 @@ class Ui_MainWindow(object):
         self.horizontalSlider_Filtered.setSliderPosition(100)
         self.horizontalSlider_Filtered.setOrientation(QtCore.Qt.Horizontal)
         self.horizontalSlider_Filtered.setObjectName("horizontalSlider_Filtered")
+        self.horizontalSlider_Filtered.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderFiltered.addWidget(self.horizontalSlider_Filtered)
         self.sliders.addLayout(self.sliderFiltered)
         self.sliderPrevious = QtWidgets.QHBoxLayout()
@@ -104,6 +108,7 @@ class Ui_MainWindow(object):
         self.checkBox_Previous.setMinimumSize(QtCore.QSize(70, 0))
         self.checkBox_Previous.setMaximumSize(QtCore.QSize(110, 30))
         self.checkBox_Previous.setObjectName("checkBox_Previous")
+        self.checkBox_Previous.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderPrevious.addWidget(self.checkBox_Previous)
         self.horizontalSlider_Previous = QtWidgets.QSlider(self.centralwidget)
         self.horizontalSlider_Previous.setToolTip("Change transparency of Masking Image")
@@ -118,6 +123,7 @@ class Ui_MainWindow(object):
         self.horizontalSlider_Previous.setSliderPosition(30)
         self.horizontalSlider_Previous.setOrientation(QtCore.Qt.Horizontal)
         self.horizontalSlider_Previous.setObjectName("horizontalSlider_Previous")
+        self.horizontalSlider_Previous.setFocusPolicy(QtCore.Qt.NoFocus)
         self.sliderPrevious.addWidget(self.horizontalSlider_Previous)
         self.sliders.addLayout(self.sliderPrevious)
         spacerItem1 = QtWidgets.QSpacerItem(20, 40, QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Expanding)
@@ -133,6 +139,7 @@ class Ui_MainWindow(object):
         self.penButton.setDefault(False)
         self.penButton.setFlat(False)
         self.penButton.setObjectName("penButton")
+        self.penButton.setFocusPolicy(QtCore.Qt.NoFocus)
         self.buttons.addWidget(self.penButton)
         self.keshiButton = QtWidgets.QPushButton(self.centralwidget)
         self.keshiButton.setText("")
@@ -142,6 +149,7 @@ class Ui_MainWindow(object):
         self.keshiButton.setDefault(False)
         self.keshiButton.setFlat(False)
         self.keshiButton.setObjectName("keshiButton")
+        self.keshiButton.setFocusPolicy(QtCore.Qt.NoFocus)
         self.buttons.addWidget(self.keshiButton)
         self.handButton = QtWidgets.QPushButton(self.centralwidget)
         self.handButton.setText("")
@@ -151,6 +159,7 @@ class Ui_MainWindow(object):
         self.handButton.setDefault(False)
         self.handButton.setFlat(False)
         self.handButton.setObjectName("handButton")
+        self.handButton.setFocusPolicy(QtCore.Qt.NoFocus)
         self.buttons.addWidget(self.handButton)
         self.zoomButton = QtWidgets.QPushButton(self.centralwidget)
         self.zoomButton.setText("")
@@ -160,6 +169,7 @@ class Ui_MainWindow(object):
         self.zoomButton.setDefault(False)
         self.zoomButton.setFlat(False)
         self.zoomButton.setObjectName("zoomButton")
+        self.zoomButton.setFocusPolicy(QtCore.Qt.NoFocus)
         self.buttons.addWidget(self.zoomButton)
         self.unzoomButton = QtWidgets.QPushButton(self.centralwidget)
         self.unzoomButton.setText("")
@@ -169,6 +179,7 @@ class Ui_MainWindow(object):
         self.unzoomButton.setDefault(False)
         self.unzoomButton.setFlat(False)
         self.unzoomButton.setObjectName("unzoomButton")
+        self.unzoomButton.setFocusPolicy(QtCore.Qt.NoFocus)
         self.buttons.addWidget(self.unzoomButton)
         self.gridLayout.addLayout(self.buttons, 1, 0, 1, 1)
         MainWindow.setCentralWidget(self.centralwidget)
@@ -191,19 +202,24 @@ class Ui_MainWindow(object):
         self.actionMasking_Image = QtWidgets.QAction(MainWindow)
         self.actionMasking_Image.setObjectName("actionMasking_Image")
         self.actionMasking_Image.setShortcut("Ctrl+O")
+        self.actionUndo = QtWidgets.QAction(MainWindow)
+        self.actionUndo.setObjectName("actionUndo")
+        self.actionUndo.setShortcut("Ctrl+Z")
         self.menuOpen.addAction(self.actionRaw_Image)
         self.menuOpen.addAction(self.actionMasking_Image)
         self.menu.addAction(self.menuOpen.menuAction())
         self.menu.addAction(self.actionSave)
+        self.menu.addAction(self.actionUndo)
         self.menubar.addAction(self.menu.menuAction())
 
         self.retranslateUi(MainWindow)
         self.penButton.clicked.connect(MainWindow.setPen) # type: ignore
-        self.keshiButton.clicked.connect(MainWindow.setEraser) # type: ignore
+        self.keshiButton.clicked.connect(MainWindow.erase) # type: ignore
         self.zoomButton.clicked.connect(MainWindow.zoom) # type: ignore
         self.unzoomButton.clicked.connect(MainWindow.unzoom) # type: ignore
         self.actionRaw_Image.triggered.connect(MainWindow.openRaw) # type: ignore
         self.actionMasking_Image.triggered.connect(MainWindow.openPrev) # type: ignore
+        self.actionUndo.triggered.connect(MainWindow.undo) # type: ignore
         self.horizontalSlider_Raw.valueChanged['int'].connect(lambda value, key="raw": MainWindow.setOpacity(value, key)) # type: ignore
         self.horizontalSlider_Filtered.valueChanged['int'].connect(lambda value, key="filtered": MainWindow.setOpacity(value, key)) # type: ignore
         self.horizontalSlider_Previous.valueChanged['int'].connect(lambda value, key="previous": MainWindow.setOpacity(value, key)) # type: ignore
@@ -213,6 +229,7 @@ class Ui_MainWindow(object):
         self.checkBox_Previous.toggled['bool'].connect(lambda state, key="previous": MainWindow.toggle_image(state, key)) # type: ignore
         self.handButton.clicked.connect(MainWindow.hand) # type: ignore
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        self.MainWindow = MainWindow
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -226,3 +243,4 @@ class Ui_MainWindow(object):
         self.actionOpen_Previous.setText(_translate("MainWindow", "Open Masking Image"))
         self.actionRaw_Image.setText(_translate("MainWindow", "Raw Image"))
         self.actionMasking_Image.setText(_translate("MainWindow", "Masking Image"))
+        self.actionUndo.setText(_translate("MainWindow", "Undo"))
