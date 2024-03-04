@@ -1,0 +1,11 @@
+<RCC>
+  <qresource prefix="/" >
+    <file>src/drag.png</file>
+    <file>src/enpitsu.png</file>
+    <file>src/icon.ico</file>
+    <file>src/keshi.png</file>
+    <file>src/mushimega.png</file>
+    <file>src/unzoom.png</file>
+    <file>src/zoom.png</file>
+  </qresource>
+</RCC>
