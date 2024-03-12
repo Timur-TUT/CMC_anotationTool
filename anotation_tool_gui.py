@@ -113,6 +113,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 q_image = QImage(img.copy(), width, height, QImage.Format_RGB888) #.copy()しないとエラーが起きる
                 pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image)) # pixmapItemにすることで透明度の設定や表示・非表示が可能
                 # pixmap_item = QGraphicsPixmapItem(QPixmap(file_name)) # グレースケール表示
+                self.scene.removeItem(self.image_dict["previous"]) # openRawの画像を削除
                 self.image_dict["previous"] = pixmap_item # 辞書に画像を登録
                 self.checkBox_Previous.setChecked(True) # チェックボックスの更新
                 pixmap_item.setOpacity(0.5) # 透明度の設定
@@ -148,8 +149,12 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.ft_image = self.cmc.fourier_transform() # フーリエ変換のフィルター画像
             height, width = raw_image.shape # 画像サイズ
 
-            for key, image, cb in zip(self.image_dict, (raw_image, self.ft_image, np.zeros_like(raw_image)), (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous)):
-                q_image = QImage(image.copy(), width, height, QImage.Format_Grayscale8) #.copy()しないとエラーが起きる
+            for key, image, cb in zip(self.image_dict, (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)), (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous)):
+                if key == "previous":
+                    image[np.where(self.ft_image>100)] = [225, 147, 56] # 明らかにき裂である画素をオレンジ色で表示
+                    q_image = QImage(image.copy(), width, height, QImage.Format_RGB888) #.copy()しないとエラーが起きる
+                else:
+                    q_image = QImage(image.copy(), width, height, QImage.Format_Grayscale8) #.copy()しないとエラーが起きる
                 pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image)) # pixmapItemにすることで透明度の設定や表示・非表示が可能
                 self.image_dict[key] = pixmap_item # 辞書に画像を登録
                 cb.setChecked(True) # チェックボックスの更新
@@ -343,7 +348,11 @@ ok・拡大する時にマウスの位置を中心に拡大縮小を行いたい
 ok・拡大と縮小に最大値を設ける
 ok・ショートカットキーが使えるようにする
 ok・透明度の設定だけではわかりづらいからRawとFilteredをグレースケールではなく、色を付けて表示する？
-・exe化
+ok・exe化
 ok・周波数フィルタリング⇒輝度値が高い画素をき裂として事前に塗ることで作業量の軽量化
-・tabボタンでmasking画像の表示/非表示
+ok・tabボタンでmasking画像の表示/非表示
+・ディレクトリのファイルを全てまとめて開く(次へボタンを開く)
+・ファイル一覧を表示する
+・画面を閉じる際に「保存しますか？」と聞く
+・透明化はスライダーのみではなく、数字でも表示する
 """
