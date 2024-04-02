@@ -4,6 +4,7 @@ import re
 import numpy as np
 import cv2
 import images_qr
+from pathlib import Path
 from anotation_tool_ui import Ui_MainWindow
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
@@ -123,10 +124,11 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.output_folder = QFileDialog.getExistingDirectory(
             self, "Select Folder", options=options
         )
-        if self.output_folder:
+        current_directory = os.getcwd()  # 現在のディレクトリを取得
+
+        if self.output_folder and Path(self.output_folder) != Path(current_directory):
             print(f"Output folder: {self.output_folder}")
         else:  # 選択されなかった場合は現在のディレクトリにフォルダーを自動的に作成
-            current_directory = os.getcwd()  # 現在のディレクトリを取得
             new_directory = os.path.join(
                 current_directory, "anotation_output"
             )  # 新しいフォルダのパスを作成
@@ -135,6 +137,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             )  # フォルダを作成（既に存在する場合は無視）
             self.output_folder = new_directory
         self.listWidget.setCurrentRow(0)  # リストの最初のアイテムを選択
+        print(f"Output folder: {self.output_folder}")
 
     # スライダーで透明度が変更された際のスロット
     @pyqtSlot()
