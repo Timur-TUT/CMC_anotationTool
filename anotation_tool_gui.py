@@ -57,6 +57,7 @@ class CMC:
 
 # ツールのクラス
 class AnotationApp(QMainWindow, Ui_MainWindow):
+
     def __init__(self, parent=None):
         super(AnotationApp, self).__init__(parent)
         self.setupUi(self)
@@ -84,20 +85,6 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self._hand = False
         self._drawing = False
 
-    # ウィンドウサイズが変更された際に呼び出されるメソッド
-    def resizeEvent(self, event):
-        for img in self.image_dict.values():
-            if img:
-                self.imageViewer.fitInView(img, Qt.KeepAspectRatio)
-        super().resizeEvent(event)
-
-    # Qimageをndarrayに変換するメソッド
-    def qimage_to_cv(self, qimage):
-        w, h, d = qimage.size().width(), qimage.size().height(), qimage.depth()
-        bytes_ = qimage.bits().asstring(w * h * d // 8)
-        arr = np.frombuffer(bytes_, dtype=np.uint8).reshape((h, w, d // 8))
-        return arr
-
     # 作業に必要なinputディレクトリとouputディレクトリを開くスロット.自動でフィルタリングされた画像も生成され、表示される. メニューで ファイル＞Open から実行される
     @pyqtSlot()
     def open(self):
@@ -111,14 +98,18 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         if self.input_folder:
             print(f"Input folder: {self.input_folder}")
             self.listWidget.clear()  # 読み込み済みのファイルがあればクリア
+            for item in self.imageViewer.items():  # すべての画像をクリア
+                self.scene.removeItem(item)
+
             raw_files = [
                 file for file in os.listdir(self.input_folder) if file.endswith(".raw")
             ]  # .raw画像の取得
             if not raw_files:  # .raw画像が存在しない場合
                 self.show_error_dialog("There are no '.raw' files in that directory")
+                return
 
             # ファイルをリストへ追加
-            for fname in raw_files:
+            for fname in sorted(raw_files):
                 item = QListWidgetItem()
                 item.setText(fname)
                 item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
@@ -145,102 +136,22 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.output_folder = new_directory
         self.listWidget.setCurrentRow(0)  # リストの最初のアイテムを選択
 
-    # リストのアイテムを読み込むメソッド
-    def load(self, current):
-        self.closeEvent()  # 保存
-
-        # CMCインスタンスを作成
-        self.cmc = CMC(self.input_folder + "\\" + current.text())
-
-        # NumPy配列からQImageに変換
-        raw_image = self.cmc.normalize()  # 正規化したraw画像
-        self.ft_image = self.cmc.fourier_transform()  # フーリエ変換のフィルター画像
-        height, width = raw_image.shape  # 画像サイズ
-
-        for key, image, cb in zip(  # キー・画像・チェックボックス
-            self.image_dict,
-            (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)),
-            (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous),
-        ):
-            if key == "previous":  # アノテーション画像の場合
-                current_row = self.listWidget.currentRow()
-                for f_name in (
-                    self.listWidget.currentItem(),  # 現在のファイルの.png
-                    self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
-                ):
-                    if f_name:
-                        previous_file = re.search(r"(\d+)_SC", f_name.text()).group(
-                            1
-                        )  #
-                    try:
-                        _img = cv2.imdecode(
-                            np.fromfile(
-                                self.output_folder + "\\" + previous_file + ".png",
-                                dtype=np.uint8,
-                            ),
-                            cv2.IMREAD_GRAYSCALE,
-                        )  # グレースケールで読み込む
-                        height, width = _img.shape  # 画像サイズ
-                        image[np.where(self.ft_image > 100)] = [
-                            225,
-                            147,
-                            56,
-                        ]  # 明らかにき裂である画素をオレンジ色で表示
-                        image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
-
-                        q_image = QImage(
-                            image.copy(), width, height, QImage.Format_RGB888
-                        )  # .copy()しないとエラーが起きる
-                        pixmap_item = QGraphicsPixmapItem(
-                            QPixmap.fromImage(q_image)
-                        )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
-                        break
-                    except (UnboundLocalError, FileNotFoundError):
-                        image[np.where(self.ft_image > 100)] = [
-                            225,
-                            147,
-                            56,
-                        ]  # 明らかにき裂である画素をオレンジ色で表示
-                        q_image = QImage(
-                            image.copy(), width, height, QImage.Format_RGB888
-                        )  # .copy()しないとエラーが起きる
-            else:
-                q_image = QImage(
-                    image.copy(), width, height, QImage.Format_Grayscale8
-                )  # .copy()しないとエラーが起きる
-            pixmap_item = QGraphicsPixmapItem(
-                QPixmap.fromImage(q_image)
-            )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
-            self.image_dict[key] = pixmap_item  # 辞書に画像を登録
-            cb.setChecked(True)  # チェックボックスの更新
-            if key == "previous":
-                pixmap_item.setOpacity(0.3)  # 透明度の設定
-            self.scene.addItem(pixmap_item)  # 画像の表示
-            self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)
-
-    def show_error_dialog(self, error_message):
-        # エラーダイアログの作成と表示
-        error_dialog = QMessageBox()
-        error_dialog.setIcon(QMessageBox.Critical)
-        error_dialog.setWindowTitle("Error")
-        error_dialog.setText("An error occurred:")
-        error_dialog.setInformativeText(error_message)
-        error_dialog.exec_()
-
-    # スライダーで透明度変更された際のスロット
+    # スライダーで透明度が変更された際のスロット
     @pyqtSlot()
     def setOpacity(self, value, key):
         if self.image_dict[key]:
             self.image_dict[key].setOpacity(value / 100)
 
+    # 未実装機能
     @pyqtSlot()
     def setPen(self):
         self.show_error_dialog(str("This feature has not yet been implemented"))
 
+    # 消しゴムボタンが押された際のスロット
     @pyqtSlot()
     def erase(self):
         if self.image_dict["previous"]:
-            reply = QMessageBox.question(
+            reply = QMessageBox.question(  # 確認のダイアログ画面
                 self,
                 "Message",
                 "All annotations will be cleared. Are you sure?",
@@ -249,10 +160,8 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
             if reply == QMessageBox.Yes:
                 q_image = self.image_dict["previous"].pixmap().toImage()
-                q_image.fill(Qt.black)
-                pixmap_item = QPixmap.fromImage(
-                    q_image
-                )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
+                q_image.fill(Qt.black)  # アノテーションされた部分すべてクリア
+                pixmap_item = QPixmap.fromImage(q_image)
                 self.image_dict["previous"].setPixmap(pixmap_item)
             else:
                 return
@@ -281,6 +190,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.total_scaling *= factor
             self.imageViewer.scale(factor, factor)
 
+    # Ctrl+Zが押された際のスロット
     @pyqtSlot()
     def undo(self):
         self._drawing = False
@@ -295,7 +205,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.image_dict["previous"].pixmap().toImage()
         )  # qimageをndarrayに変換
         gray_img = img[:, :, 2].copy()  # 赤色のみを書き出し
-        gray_img[gray_img > 0] = 255
+        gray_img[gray_img > 0] = 255  # 二値化
         self.change_count = 0
 
         # 日本語パスに対応した保存
@@ -311,6 +221,8 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             else:
                 self.image_dict[key].setVisible(False)
 
+    # Previousボタンが押された際のスロット
+    @pyqtSlot()
     def prevFile(self):
         if self.closeEvent():
             current_row = self.listWidget.currentRow()
@@ -321,6 +233,8 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 return
             self.listWidget.setCurrentRow(next_row)
 
+    # Nextボタンが押された際のスロット
+    @pyqtSlot()
     def nextFile(self):
         if self.closeEvent():
             current_row = self.listWidget.currentRow()
@@ -330,6 +244,94 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             except ZeroDivisionError:
                 return
             self.listWidget.setCurrentRow(next_row)
+
+    # Qimageをndarrayに変換するメソッド
+    def qimage_to_cv(self, qimage):
+        w, h, d = qimage.size().width(), qimage.size().height(), qimage.depth()
+        bytes_ = qimage.bits().asstring(w * h * d // 8)
+        arr = np.frombuffer(bytes_, dtype=np.uint8).reshape((h, w, d // 8))
+        return arr
+
+    # リストのアイテムを読み込むメソッド
+    def load(self, current):
+        self.closeEvent()  # 保存
+
+        # CMCインスタンスを作成
+        try:
+            self.cmc = CMC(self.input_folder + "\\" + current.text())
+        except AttributeError:
+            return
+
+        # NumPy配列からQImageに変換
+        raw_image = self.cmc.normalize()  # 正規化したraw画像
+        self.ft_image = self.cmc.fourier_transform()  # フーリエ変換のフィルター画像
+        height, width = raw_image.shape  # 画像サイズ
+
+        for key, image, cb in zip(  # キー・画像・チェックボックス
+            self.image_dict,
+            (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)),
+            (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous),
+        ):
+            if key == "previous":  # アノテーション画像の場合
+                current_row = self.listWidget.currentRow()
+                for f_name in (
+                    self.listWidget.currentItem(),  # 現在のファイルの.png
+                    self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
+                ):
+                    if f_name:
+                        previous_file = re.search(r"(\d+)_SC", f_name.text()).group(1)
+                    try:
+                        # 　現在開いているファイルと名前が一致する画像を開く
+                        _img = cv2.imdecode(
+                            np.fromfile(
+                                self.output_folder + "\\" + previous_file + ".png",
+                                dtype=np.uint8,
+                            ),
+                            cv2.IMREAD_GRAYSCALE,
+                        )  # グレースケールで読み込む
+                        height, width = _img.shape  # 画像サイズ
+                        image[np.where(self.ft_image > 100)] = [
+                            225,
+                            147,
+                            56,
+                        ]  # 明らかにき裂である画素をオレンジ色で表示
+                        image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
+
+                        q_image = QImage(
+                            image.copy(), width, height, QImage.Format_RGB888
+                        )  # .copy()しないとエラーになる
+                        pixmap_item = QGraphicsPixmapItem(
+                            QPixmap.fromImage(q_image)
+                        )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
+                        break  # 対象画像が見つかった時点で終了
+                    except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
+                        image[np.where(self.ft_image > 100)] = [
+                            225,
+                            147,
+                            56,
+                        ]  # 明らかにき裂である画素をオレンジ色で表示
+                        q_image = QImage(
+                            image.copy(), width, height, QImage.Format_RGB888
+                        )
+            else:  # rawやfiltered画像の処理
+                q_image = QImage(image.copy(), width, height, QImage.Format_Grayscale8)
+
+            pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image))
+            self.image_dict[key] = pixmap_item  # 辞書に画像を登録
+            cb.setChecked(True)  # チェックボックスの更新
+            if key == "previous":
+                pixmap_item.setOpacity(0.3)  # 透明度の設定
+            self.scene.addItem(pixmap_item)  # 画像の表示
+            self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)  # サイズ調整
+
+    # エラーダイアログを表示するメソッド
+    def show_error_dialog(self, error_message):
+        error_dialog = QMessageBox()
+        error_dialog.setIcon(QMessageBox.Critical)
+        error_dialog.setWindowTitle("Error")
+        error_dialog.setText("An error occurred:")
+        error_dialog.setInformativeText(error_message)  # 任意のメッセージ
+        error_dialog.exec_()
 
     # クリックした位置で描画を行うメソッド
     def draw(self, event):
@@ -353,17 +355,26 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         canvas_pixmap = QPixmap.fromImage(image)
         self.image_dict["previous"].setPixmap(canvas_pixmap)
 
+    # ウィンドウサイズが変更された際に呼び出されるメソッド
+    def resizeEvent(self, event):
+        for img in self.image_dict.values():
+            if img:
+                self.imageViewer.fitInView(img, Qt.KeepAspectRatio)
+        super().resizeEvent(event)
+
+    # 画面を閉じる際や、次のファイルに移る際の処理
     def closeEvent(self, event=None):
-        if self.change_count > 0:
-            self.change_count = 0
+        if self.change_count > 0:  # 変更がなければ保存しない
+            self.change_count = 0  # リセット
             reply = QMessageBox.question(
                 self,
                 "Message",
                 "Do you want to save changes?",
                 QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
                 QMessageBox.Cancel,
-            )
+            )  # ダイアログ画面
 
+            # 「キャンセル」が押された場合のみ処理を中断するためにFalseを戻り値とする
             if reply == QMessageBox.Yes:
                 # 保存処理を行う
                 self.saveImage()
@@ -385,15 +396,16 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             if not event:
                 return True
 
-    # タブキーが押されている間の処理
+    # タブキーが押された場合の処理
     def keyPressEvent(self, event):
         if event.key() == Qt.Key_Tab:
-            self.toggle_image(True, "previous")
+            self.toggle_image(True, "previous")  # 表示
             self.checkBox_Previous.setChecked(True)
 
+    # タブキーがリリースされた場合の処理
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Tab:
-            self.toggle_image(False, "previous")
+            self.toggle_image(False, "previous")  # 非表示
             self.checkBox_Previous.setChecked(False)
 
     # マウスクリックイベント
@@ -425,7 +437,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.draw(event)
         QGraphicsView.mouseMoveEvent(self.imageViewer, event)
 
-    # マウスクリックイベント
+    # マウスを離した際のイベント
     def mouseReleaseEvent(self, event):
         if self._hand == False:
             self.imageViewer.setDragMode(QGraphicsView.NoDrag)
@@ -440,6 +452,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.numScheduledScalings += numSteps
         if self.numScheduledScalings * numSteps < 0:
             self.numScheduledScalings = numSteps
+        # アニメーションとすることでスムーズな拡大縮小が可能
         self.scale_animation = QTimeLine(350, self)
         self.scale_animation.setUpdateInterval(20)
         self.scale_animation.valueChanged.connect(self.scalingTime)
