@@ -162,6 +162,9 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             )
 
             if reply == QMessageBox.Yes:
+                self.undo_image = QPixmap.fromImage(
+                    self.image_dict["previous"].pixmap().toImage().copy()
+                )
                 q_image = self.image_dict["previous"].pixmap().toImage()
                 q_image.fill(Qt.black)  # アノテーションされた部分すべてクリア
                 pixmap_item = QPixmap.fromImage(q_image)
