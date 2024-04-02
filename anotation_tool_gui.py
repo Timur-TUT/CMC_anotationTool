@@ -126,9 +126,9 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         )
         current_directory = os.getcwd()  # 現在のディレクトリを取得
 
-        if self.output_folder and Path(self.output_folder) != Path(current_directory):
-            print(f"Output folder: {self.output_folder}")
-        else:  # 選択されなかった場合は現在のディレクトリにフォルダーを自動的に作成
+        if not (
+            self.output_folder and Path(self.output_folder) != Path(current_directory)
+        ):  # 選択されなかった場合や作業ディレクトリと同じ場合は、現在のディレクトリにフォルダーを自動的に作成
             new_directory = os.path.join(
                 current_directory, "anotation_output"
             )  # 新しいフォルダのパスを作成
@@ -203,7 +203,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     # 画像を保存する際のスロット．メニューで ファイル＞Save から実行される
     @pyqtSlot()
     def saveImage(self):
-        filePath = self.output_folder + "\\" + self.cmc.id + ".png"
+        filePath = os.path.join(self.output_folder, self.cmc.id + ".png")
         img = self.qimage_to_cv(
             self.image_dict["previous"].pixmap().toImage()
         )  # qimageをndarrayに変換
@@ -261,7 +261,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
         # CMCインスタンスを作成
         try:
-            self.cmc = CMC(self.input_folder + "\\" + current.text())
+            self.cmc = CMC(os.path.join(self.input_folder, current.text()))
         except AttributeError:
             return
 
