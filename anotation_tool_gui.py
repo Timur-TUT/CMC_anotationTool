@@ -1,37 +1,42 @@
 import sys
+import os
 import re
 import numpy as np
 import cv2
+import images_qr
 from anotation_tool_ui import Ui_MainWindow
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 
+
+# .raw画像を読み込み、周波数フィルタリングを行い、データを管理するクラス
 class CMC:
 
     def __init__(
         self,
-        filename,  #.raw形式のデータファイル名
-        w=1344,  #画像データの幅
-        h=1344,  #画像データの高さ
-        tl=(400, 550),  #切り取り用(左上座標)
-        br=(860, 650)):  #切り取り用(右下座標) おすすめ：br[0] = 810 or 860 or 945
-        s = re.search("_", filename).span()
-        self.id = filename[7:s[1] - 1]  #負荷レベル
+        filename,  # .raw形式のデータファイル名
+        w=1344,  # 画像データの幅
+        h=1344,  # 画像データの高さ
+        tl=(400, 550),  # 切り取り用(左上座標)
+        br=(860, 650),
+    ):  # 切り取り用(右下座標) おすすめ：br[0] = 810 or 860 or 945
+        s = re.search(r"(\d+)_SC", filename)  # 正規表現により画像の負荷を取得
+        self.id = s.group(1)  # 負荷レベルをIDとする
 
-        #データの読み込み
-        with open(filename, 'rb') as f:
+        # データの読み込み
+        with open(filename, "rb") as f:
             rawdata = f.read()
             data = np.frombuffer(rawdata, dtype=np.int16).reshape(w, h)
-            self.data = data[tl[1]:br[1], tl[0]:br[0]]
-            
-    # 配列の正規化
+            self.data = data[tl[1] : br[1], tl[0] : br[0]]
+
+    # 配列の正規化(画像として表示することが可能)
     def normalize(self, array=None):
-        if array is None: array = self.data
-        normalized_data = (array - array.min()) / (array.max() -
-                                                   array.min()) * 255
+        if array is None:
+            array = self.data
+        normalized_data = (array - array.min()) / (array.max() - array.min()) * 255
         return normalized_data.astype(np.uint8)
-    
+
     # フーリエ変換
     def fourier_transform(self, r=14):
         # 2次元高速フーリエ変換で周波数領域の情報を取り出す
@@ -40,7 +45,7 @@ class CMC:
         # 画像の中心に低周波数の成分がくるように並べかえる
         shifted_ft = np.fft.fftshift(f_transformed)
         # フィルターをかける
-        shifted_ft[:, 230 - r:230 + r] = 0
+        shifted_ft[:, 230 - r : 230 + r] = 0
 
         # 元通りに並び替える
         data2invert = np.fft.ifftshift(shifted_ft)
@@ -49,6 +54,8 @@ class CMC:
 
         return self.normalize(self.inverted_data)
 
+
+# ツールのクラス
 class AnotationApp(QMainWindow, Ui_MainWindow):
     def __init__(self, parent=None):
         super(AnotationApp, self).__init__(parent)
@@ -61,10 +68,13 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.imageViewer.mouseReleaseEvent = self.mouseReleaseEvent
 
         # 変数の初期値設定
-        self.image_dict = {k:None for k in ["raw", "filtered", "previous"]} # 3つの画像の保存を行う辞書. valueの型はQGraphicsPixmapItem
-        self.undo_image = None
-        self.numScheduledScalings = 0
-        self.total_scaling = 1
+        self.image_dict = {
+            k: None for k in ["raw", "filtered", "previous"]
+        }  # 3つの画像を保管する辞書. valueの型はQGraphicsPixmapItem
+        self.undo_image = None  # 動作直前の画像を保存する変数．Ctrl+Z時に使用
+        self.numScheduledScalings = 0  # 拡大縮小をスムーズに行うための変数
+        self.total_scaling = 1  # 合計拡大縮小回数．無限に拡大することを防止
+        self.change_count = 0  # アノテーションする際の手数をカウント
 
         # 画像表示用のシーンの準備
         self.scene = QGraphicsScene(self)
@@ -87,82 +97,126 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         bytes_ = qimage.bits().asstring(w * h * d // 8)
         arr = np.frombuffer(bytes_, dtype=np.uint8).reshape((h, w, d // 8))
         return arr
-    
-    # 前の負荷画像で作成したマスキング画像を開くスロット. メニューで ファイル＞Open＞Masking Image から実行される
+
+    # 作業に必要なinputディレクトリとouputディレクトリを開くスロット.自動でフィルタリングされた画像も生成され、表示される. メニューで ファイル＞Open から実行される
     @pyqtSlot()
-    def openPrev(self):
+    def open(self):
         # ダイアログ画面の設定
-        if self.image_dict["raw"] is None:
-            self.show_error_dialog(str("Open '.raw' file first"))
+        options = QFileDialog.Options()
+        options |= QFileDialog.DontUseNativeDialog
+        self.input_folder = QFileDialog.getExistingDirectory(
+            self, "Select Folder", options=options
+        )
+
+        if self.input_folder:
+            print(f"Input folder: {self.input_folder}")
+            self.listWidget.clear()  # 読み込み済みのファイルがあればクリア
+            raw_files = [
+                file for file in os.listdir(self.input_folder) if file.endswith(".raw")
+            ]  # .raw画像の取得
+            if not raw_files:  # .raw画像が存在しない場合
+                self.show_error_dialog("There are no '.raw' files in that directory")
+
+            # ファイルをリストへ追加
+            for fname in raw_files:
+                item = QListWidgetItem()
+                item.setText(fname)
+                item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
+                icon = QIcon()
+                icon.addPixmap(QPixmap(":/src/raw.png"), QIcon.Normal, QIcon.Off)
+                item.setIcon(icon)
+                self.listWidget.addItem(item)
+        else:
             return
-        
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;PNG Files (*.png)", options=options)
-        
-        if file_name:
-            print(f"Opening file: {file_name}")
-            
-            try:
-                _img = cv2.imdecode(np.fromfile(file_name, dtype=np.uint8), cv2.IMREAD_GRAYSCALE) # グレースケールで読み込む
-                height, width = _img.shape # 画像サイズ
-                img = np.zeros((height, width, 3), dtype=np.uint8) # RGB画像を作成し
-                img[np.where(self.ft_image>100)] = [225, 147, 56] # 明らかにき裂である画素をオレンジ色で表示
-                img[np.where(_img==255)] = [255, 0, 0] # 赤色で表示
-                
-                q_image = QImage(img.copy(), width, height, QImage.Format_RGB888) #.copy()しないとエラーが起きる
-                pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image)) # pixmapItemにすることで透明度の設定や表示・非表示が可能
-                # pixmap_item = QGraphicsPixmapItem(QPixmap(file_name)) # グレースケール表示
-                self.scene.removeItem(self.image_dict["previous"]) # openRawの画像を削除
-                self.image_dict["previous"] = pixmap_item # 辞書に画像を登録
-                self.checkBox_Previous.setChecked(True) # チェックボックスの更新
-                pixmap_item.setOpacity(0.5) # 透明度の設定
-                self.scene.addItem(pixmap_item) # 画像の表示
-                self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)
-            except AttributeError:
-                # エラーダイアログを表示
-                self.show_error_dialog(str("Only image files can be opened"))
-                return
-        else: return
 
-    # 作業に必要なraw画像を開くスロット.自動でフィルタリングされた画像も生成され、表示される. メニューで ファイル＞Open＞Raw Image から実行される
-    @pyqtSlot()
-    def openRaw(self):
-        # ダイアログ画面の設定
-        options = QFileDialog.Options()
-        options |= QFileDialog.DontUseNativeDialog
-        file_name, _ = QFileDialog.getOpenFileName(self, "Open File", "", "All Files (*);;Raw Files (*.raw)", options=options)
-        
-        if file_name:
-            print(f"Opening file: {file_name}")
-            self.MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", "AnotationTool: " + file_name))
-            if file_name[-4:] != ".raw":
-                # エラーダイアログを表示
-                self.show_error_dialog(str("Only '.raw' files can be opened"))
-                return
+        self.output_folder = QFileDialog.getExistingDirectory(
+            self, "Select Folder", options=options
+        )
+        if self.output_folder:
+            print(f"Output folder: {self.output_folder}")
+        else:  # 選択されなかった場合は現在のディレクトリにフォルダーを自動的に作成
+            current_directory = os.getcwd()  # 現在のディレクトリを取得
+            new_directory = os.path.join(
+                current_directory, "anotation_output"
+            )  # 新しいフォルダのパスを作成
+            os.makedirs(
+                new_directory, exist_ok=True
+            )  # フォルダを作成（既に存在する場合は無視）
+            self.output_folder = new_directory
+        self.listWidget.setCurrentRow(0)  # リストの最初のアイテムを選択
 
-            # CMCインスタンスを作成
-            self.cmc = CMC(file_name)
-            
-            # NumPy配列からQImageに変換
-            raw_image = self.cmc.normalize() # 正規化したraw画像
-            self.ft_image = self.cmc.fourier_transform() # フーリエ変換のフィルター画像
-            height, width = raw_image.shape # 画像サイズ
+    # リストのアイテムを読み込むメソッド
+    def load(self, current):
+        self.closeEvent()  # 保存
 
-            for key, image, cb in zip(self.image_dict, (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)), (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous)):
-                if key == "previous":
-                    image[np.where(self.ft_image>100)] = [225, 147, 56] # 明らかにき裂である画素をオレンジ色で表示
-                    q_image = QImage(image.copy(), width, height, QImage.Format_RGB888) #.copy()しないとエラーが起きる
-                else:
-                    q_image = QImage(image.copy(), width, height, QImage.Format_Grayscale8) #.copy()しないとエラーが起きる
-                pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image)) # pixmapItemにすることで透明度の設定や表示・非表示が可能
-                self.image_dict[key] = pixmap_item # 辞書に画像を登録
-                cb.setChecked(True) # チェックボックスの更新
-                if key == "previous":
-                    pixmap_item.setOpacity(0.3) # 透明度の設定
-                self.scene.addItem(pixmap_item) # 画像の表示
-                self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)
-        else: return
+        # CMCインスタンスを作成
+        self.cmc = CMC(self.input_folder + "\\" + current.text())
+
+        # NumPy配列からQImageに変換
+        raw_image = self.cmc.normalize()  # 正規化したraw画像
+        self.ft_image = self.cmc.fourier_transform()  # フーリエ変換のフィルター画像
+        height, width = raw_image.shape  # 画像サイズ
+
+        for key, image, cb in zip(  # キー・画像・チェックボックス
+            self.image_dict,
+            (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)),
+            (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous),
+        ):
+            if key == "previous":  # アノテーション画像の場合
+                current_row = self.listWidget.currentRow()
+                for f_name in (
+                    self.listWidget.currentItem(),  # 現在のファイルの.png
+                    self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
+                ):
+                    if f_name:
+                        previous_file = re.search(r"(\d+)_SC", f_name.text()).group(
+                            1
+                        )  #
+                    try:
+                        _img = cv2.imdecode(
+                            np.fromfile(
+                                self.output_folder + "\\" + previous_file + ".png",
+                                dtype=np.uint8,
+                            ),
+                            cv2.IMREAD_GRAYSCALE,
+                        )  # グレースケールで読み込む
+                        height, width = _img.shape  # 画像サイズ
+                        image[np.where(self.ft_image > 100)] = [
+                            225,
+                            147,
+                            56,
+                        ]  # 明らかにき裂である画素をオレンジ色で表示
+                        image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
+
+                        q_image = QImage(
+                            image.copy(), width, height, QImage.Format_RGB888
+                        )  # .copy()しないとエラーが起きる
+                        pixmap_item = QGraphicsPixmapItem(
+                            QPixmap.fromImage(q_image)
+                        )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
+                        break
+                    except (UnboundLocalError, FileNotFoundError):
+                        image[np.where(self.ft_image > 100)] = [
+                            225,
+                            147,
+                            56,
+                        ]  # 明らかにき裂である画素をオレンジ色で表示
+                        q_image = QImage(
+                            image.copy(), width, height, QImage.Format_RGB888
+                        )  # .copy()しないとエラーが起きる
+            else:
+                q_image = QImage(
+                    image.copy(), width, height, QImage.Format_Grayscale8
+                )  # .copy()しないとエラーが起きる
+            pixmap_item = QGraphicsPixmapItem(
+                QPixmap.fromImage(q_image)
+            )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
+            self.image_dict[key] = pixmap_item  # 辞書に画像を登録
+            cb.setChecked(True)  # チェックボックスの更新
+            if key == "previous":
+                pixmap_item.setOpacity(0.3)  # 透明度の設定
+            self.scene.addItem(pixmap_item)  # 画像の表示
+            self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)
 
     def show_error_dialog(self, error_message):
         # エラーダイアログの作成と表示
@@ -185,78 +239,151 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
     @pyqtSlot()
     def erase(self):
-        self.show_error_dialog(str("This feature has not yet been implemented"))
+        if self.image_dict["previous"]:
+            reply = QMessageBox.question(
+                self,
+                "Message",
+                "All annotations will be cleared. Are you sure?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
+
+            if reply == QMessageBox.Yes:
+                q_image = self.image_dict["previous"].pixmap().toImage()
+                q_image.fill(Qt.black)
+                pixmap_item = QPixmap.fromImage(
+                    q_image
+                )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
+                self.image_dict["previous"].setPixmap(pixmap_item)
+            else:
+                return
 
     # ハンドボタンが押された際のスロット
     @pyqtSlot()
     def hand(self):
-        if self._hand: # ハンドモードをオフ
+        if self._hand:  # ハンドモードをオフ
             self._hand = False
             self.imageViewer.setDragMode(QGraphicsView.NoDrag)
         else:
-            self._hand = True # ハンドモードをオン
+            self._hand = True  # ハンドモードをオン
             self.imageViewer.setDragMode(QGraphicsView.ScrollHandDrag)
 
     # 拡大ボタンが押された際のスロット
     @pyqtSlot()
-    def zoom(self, factor = 1.5):
-        if 0.95 < self.total_scaling * factor < 50: # 拡大に範囲を設けている
+    def zoom(self, factor=1.5):
+        if 0.95 < self.total_scaling * factor < 50:  # 拡大に範囲を設けている
             self.total_scaling *= factor
             self.imageViewer.scale(factor, factor)
 
     # 縮小ボタンが押された際のスロット
     @pyqtSlot()
-    def unzoom(self, factor = 1/1.5):
-        if 0.95 < self.total_scaling * factor < 50: # 縮小に範囲を設けている
+    def unzoom(self, factor=1 / 1.5):
+        if 0.95 < self.total_scaling * factor < 50:  # 縮小に範囲を設けている
             self.total_scaling *= factor
             self.imageViewer.scale(factor, factor)
 
     @pyqtSlot()
     def undo(self):
         self._drawing = False
+        self.change_count -= 1
         self.image_dict["previous"].setPixmap(self.undo_image)
-    
+
     # 画像を保存する際のスロット．メニューで ファイル＞Save から実行される
     @pyqtSlot()
     def saveImage(self):
-        filePath, _ = QFileDialog.getSaveFileName(self, "Save Image", "",
-                          "PNG(*.png);;JPEG(*.jpg *.jpeg);;All Files(*.*) ")
- 
-        if filePath == "":
-            return
+        filePath = self.output_folder + "\\" + self.cmc.id + ".png"
+        img = self.qimage_to_cv(
+            self.image_dict["previous"].pixmap().toImage()
+        )  # qimageをndarrayに変換
+        gray_img = img[:, :, 2].copy()  # 赤色のみを書き出し
+        gray_img[gray_img > 0] = 255
+        self.change_count = 0
 
-        img = self.qimage_to_cv(self.image_dict["previous"].pixmap().toImage()) # qimageをndarrayに変換
-        gray_img = img[:, :, 2] # 赤色のみを書き出し
-        
         # 日本語パスに対応した保存
-        _, buf = cv2.imencode('*.png', gray_img) 
+        _, buf = cv2.imencode("*.png", gray_img)
         buf.tofile(filePath)
 
     # チェックボックスが押された際のスロット
     @pyqtSlot()
     def toggle_image(self, state, key):
         if self.image_dict[key]:
-            if state: # チェックボックスがactiveなら
+            if state:  # チェックボックスがactiveなら
                 self.image_dict[key].setVisible(True)
             else:
                 self.image_dict[key].setVisible(False)
+
+    def prevFile(self):
+        if self.closeEvent():
+            current_row = self.listWidget.currentRow()
+            total_items = self.listWidget.count()
+            try:
+                next_row = (current_row - 1) % total_items
+            except ZeroDivisionError:
+                return
+            self.listWidget.setCurrentRow(next_row)
+
+    def nextFile(self):
+        if self.closeEvent():
+            current_row = self.listWidget.currentRow()
+            total_items = self.listWidget.count()
+            try:
+                next_row = (current_row + 1) % total_items
+            except ZeroDivisionError:
+                return
+            self.listWidget.setCurrentRow(next_row)
 
     # クリックした位置で描画を行うメソッド
     def draw(self, event):
         # クリックした位置を取得
         pos_scene = self.imageViewer.mapToScene(event.pos())
         x, y = int(pos_scene.x()), int(pos_scene.y())
-        
-        image = self.image_dict["previous"].pixmap().toImage() # pixmapをqimageに変換
-        if 0 <= x < image.width() and 0 <= y < image.height(): # 画像内のクリックのみ
-            if event.buttons() & Qt.RightButton: # 右クリック
-                image.setPixelColor(x, y, QColor(0, 0, 0)) # クリックしたピクセルを黒くする
-            elif event.buttons() & Qt.LeftButton: # 左クリック
-                image.setPixelColor(x, y, QColor(225, 147, 56)) # クリックしたピクセルをオレンジに
-        
+
+        image = self.image_dict["previous"].pixmap().toImage()  # pixmapをqimageに変換
+        if 0 <= x < image.width() and 0 <= y < image.height():  # 画像内のクリックのみ
+            self.change_count += 1
+            if event.buttons() & Qt.RightButton:  # 右クリック
+                image.setPixelColor(
+                    x, y, QColor(0, 0, 0)
+                )  # クリックしたピクセルを黒くする
+            elif event.buttons() & Qt.LeftButton:  # 左クリック
+                image.setPixelColor(
+                    x, y, QColor(225, 147, 56)
+                )  # クリックしたピクセルをオレンジに
+
         # キャンバスの画像を QPixmap に変換して表示
         canvas_pixmap = QPixmap.fromImage(image)
         self.image_dict["previous"].setPixmap(canvas_pixmap)
+
+    def closeEvent(self, event=None):
+        if self.change_count > 0:
+            self.change_count = 0
+            reply = QMessageBox.question(
+                self,
+                "Message",
+                "Do you want to save changes?",
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel,
+                QMessageBox.Cancel,
+            )
+
+            if reply == QMessageBox.Yes:
+                # 保存処理を行う
+                self.saveImage()
+                if event:
+                    event.accept()
+                else:
+                    return True
+            elif reply == QMessageBox.No:
+                if event:
+                    event.accept()
+                else:
+                    return True
+            else:
+                if event:
+                    event.ignore()
+                else:
+                    return False
+        else:
+            if not event:
+                return True
 
     # タブキーが押されている間の処理
     def keyPressEvent(self, event):
@@ -271,33 +398,40 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
     # マウスクリックイベント
     def mousePressEvent(self, event):
-        if event.button() == Qt.MidButton: #　中ボタンをクリックした場合はドラッグ
+        if event.button() == Qt.MidButton:  # 　中ボタンをクリックした場合はドラッグ
             self.imageViewer.setDragMode(QGraphicsView.ScrollHandDrag)
-            event = QMouseEvent(QEvent.GraphicsSceneDragMove, event.pos(), Qt.MouseButton.LeftButton, 
-                                Qt.MouseButton.LeftButton, Qt.KeyboardModifier.NoModifier)
+            event = QMouseEvent(
+                QEvent.GraphicsSceneDragMove,
+                event.pos(),
+                Qt.MouseButton.LeftButton,
+                Qt.MouseButton.LeftButton,
+                Qt.KeyboardModifier.NoModifier,
+            )
             QGraphicsView.mousePressEvent(self.imageViewer, event)
 
-        else: # それ以外はdrawメソッドで処理
+        else:  # それ以外はdrawメソッドで処理
             if self.image_dict["previous"] and self._hand == False:
                 self._drawing = True
-                self.undo_image = QPixmap.fromImage(self.image_dict["previous"].pixmap().toImage().copy())
+                self.undo_image = QPixmap.fromImage(
+                    self.image_dict["previous"].pixmap().toImage().copy()
+                )
                 self.draw(event)
             else:
                 QGraphicsView.mousePressEvent(self.imageViewer, event)
 
     # マウス移動イベント
     def mouseMoveEvent(self, event):
-        if self._drawing: # 描画中にマウスが動いた場合はその途中のピクセルも塗る
+        if self._drawing:  # 描画中にマウスが動いた場合はその途中のピクセルも塗る
             self.draw(event)
         QGraphicsView.mouseMoveEvent(self.imageViewer, event)
-        
+
     # マウスクリックイベント
     def mouseReleaseEvent(self, event):
         if self._hand == False:
             self.imageViewer.setDragMode(QGraphicsView.NoDrag)
             if event.button() == Qt.LeftButton or event.button() == Qt.RightButton:
-                self._drawing = False # 描画終了
-        QGraphicsView.mouseReleaseEvent(self.imageViewer, event)        
+                self._drawing = False  # 描画終了
+        QGraphicsView.mouseReleaseEvent(self.imageViewer, event)
 
     # 中ボタン(ホイール)回転イベント
     def wheelEvent(self, event):
@@ -315,9 +449,11 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     # 画像拡大をアニメーションによってスムーズに行うメソッド
     def scalingTime(self, x):
         factor = 1.0 + float(self.numScheduledScalings) / 300.0
-        if 0.95 < self.total_scaling * factor < 50: # 拡大縮小に範囲を設ける
+        if 0.95 < self.total_scaling * factor < 50:  # 拡大縮小に範囲を設ける
             self.total_scaling *= factor
-            self.imageViewer.setTransformationAnchor(QGraphicsView.AnchorUnderMouse) # マウス中心に拡大縮小
+            self.imageViewer.setTransformationAnchor(
+                QGraphicsView.AnchorUnderMouse
+            )  # マウス中心に拡大縮小
             self.imageViewer.scale(factor, factor)
         else:
             self.numScheduledScalings = 0
@@ -330,7 +466,8 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         else:
             self.numScheduledScalings += 1
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     window = AnotationApp()
     window.show()
@@ -343,7 +480,7 @@ ok・長押しで描画を行えるようにする
 ok・Previous Imageがなくても描画が出来るようにしたい
 ok・Undo機能の追加
 ok・以前塗った部分と今回塗った部分で色を分ける
-・クリアボタンが欲しい ⇒消しゴムボタンの代わりにするのが良さそう
+ok・クリアボタンが欲しい ⇒消しゴムボタンの代わりにするのが良さそう
 ok・拡大する時にマウスの位置を中心に拡大縮小を行いたい(現在は画面中央を拡大している)
 ok・拡大と縮小に最大値を設ける
 ok・ショートカットキーが使えるようにする
@@ -351,8 +488,8 @@ ok・透明度の設定だけではわかりづらいからRawとFilteredをグ�
 ok・exe化
 ok・周波数フィルタリング⇒輝度値が高い画素をき裂として事前に塗ることで作業量の軽量化
 ok・tabボタンでmasking画像の表示/非表示
-・ディレクトリのファイルを全てまとめて開く(次へボタンを開く)
-・ファイル一覧を表示する
-・画面を閉じる際に「保存しますか？」と聞く
+ok・ディレクトリのファイルを全てまとめて開く(次へボタンを開く)
+ok・ファイル一覧を表示する
+ok・画面を閉じる際に「保存しますか？」と聞く
 ・透明化はスライダーのみではなく、数字でも表示する
 """

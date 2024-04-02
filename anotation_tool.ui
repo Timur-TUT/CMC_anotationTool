@@ -6,15 +6,140 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>705</width>
-    <height>172</height>
+    <width>674</width>
+    <height>347</height>
    </rect>
+  </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
+  <property name="minimumSize">
+   <size>
+    <width>35</width>
+    <height>0</height>
+   </size>
   </property>
   <property name="windowTitle">
    <string>AnotationTool</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QGridLayout" name="gridLayout">
+    <item row="1" column="0">
+     <layout class="QHBoxLayout" name="buttons">
+      <property name="sizeConstraint">
+       <enum>QLayout::SetMinimumSize</enum>
+      </property>
+      <item>
+       <widget class="QPushButton" name="penButton">
+        <property name="cursor">
+         <cursorShape>ForbiddenCursor</cursorShape>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>src/enpitsu.png</normaloff>src/enpitsu.png</iconset>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="keshiButton">
+        <property name="cursor">
+         <cursorShape>ForbiddenCursor</cursorShape>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>src/keshi.png</normaloff>src/keshi.png</iconset>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="handButton">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>src/drag.png</normaloff>src/drag.png</iconset>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="zoomButton">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>src/zoom.png</normaloff>src/zoom.png</iconset>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="QPushButton" name="unzoomButton">
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="text">
+         <string/>
+        </property>
+        <property name="icon">
+         <iconset>
+          <normaloff>src/unzoom.png</normaloff>src/unzoom.png</iconset>
+        </property>
+        <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
+         <bool>false</bool>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
     <item row="0" column="0">
      <widget class="QGraphicsView" name="imageViewer">
       <property name="sizePolicy">
@@ -35,8 +160,14 @@
         <height>0</height>
        </size>
       </property>
+      <property name="cursor" stdset="0">
+       <cursorShape>CrossCursor</cursorShape>
+      </property>
       <property name="mouseTracking">
        <bool>true</bool>
+      </property>
+      <property name="focusPolicy">
+       <enum>Qt::StrongFocus</enum>
       </property>
       <property name="contextMenuPolicy">
        <enum>Qt::ActionsContextMenu</enum>
@@ -61,19 +192,6 @@
     <item row="0" column="1">
      <layout class="QVBoxLayout" name="sliders">
       <item>
-       <spacer name="verticalSpacer_1">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
-        </property>
-        <property name="sizeHint" stdset="0">
-         <size>
-          <width>20</width>
-          <height>40</height>
-         </size>
-        </property>
-       </spacer>
-      </item>
-      <item>
        <layout class="QHBoxLayout" name="sliderRaw">
         <item>
          <widget class="QCheckBox" name="checkBox_Raw">
@@ -97,6 +215,14 @@
             <width>110</width>
             <height>30</height>
            </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>11</pointsize>
+           </font>
+          </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
           </property>
           <property name="text">
            <string>Raw</string>
@@ -123,11 +249,14 @@
             <height>11</height>
            </size>
           </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
           <property name="sliderPosition">
-           <number>50</number>
+           <number>100</number>
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -151,6 +280,14 @@
             <width>110</width>
             <height>30</height>
            </size>
+          </property>
+          <property name="font">
+           <font>
+            <pointsize>11</pointsize>
+           </font>
+          </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
           </property>
           <property name="text">
            <string>Filtered</string>
@@ -177,11 +314,17 @@
             <height>11</height>
            </size>
           </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
+          <property name="value">
+           <number>100</number>
+          </property>
           <property name="sliderPosition">
-           <number>50</number>
+           <number>100</number>
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -212,6 +355,14 @@
             <height>30</height>
            </size>
           </property>
+          <property name="font">
+           <font>
+            <pointsize>11</pointsize>
+           </font>
+          </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
+          </property>
           <property name="text">
            <string>Previous</string>
           </property>
@@ -237,11 +388,17 @@
             <height>11</height>
            </size>
           </property>
+          <property name="focusPolicy">
+           <enum>Qt::NoFocus</enum>
+          </property>
           <property name="maximum">
            <number>100</number>
           </property>
+          <property name="value">
+           <number>30</number>
+          </property>
           <property name="sliderPosition">
-           <number>50</number>
+           <number>30</number>
           </property>
           <property name="orientation">
            <enum>Qt::Horizontal</enum>
@@ -251,104 +408,88 @@
        </layout>
       </item>
       <item>
-       <spacer name="verticalSpacer_2">
-        <property name="orientation">
-         <enum>Qt::Vertical</enum>
+       <widget class="QListWidget" name="listWidget">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Minimum" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
         </property>
-        <property name="sizeHint" stdset="0">
+        <property name="minimumSize">
          <size>
-          <width>20</width>
-          <height>40</height>
+          <width>70</width>
+          <height>0</height>
          </size>
         </property>
-       </spacer>
+        <property name="font">
+         <font>
+          <pointsize>10</pointsize>
+         </font>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <item>
+         <property name="text">
+          <string>test</string>
+         </property>
+         <property name="textAlignment">
+          <set>AlignLeading|AlignVCenter</set>
+         </property>
+         <property name="icon">
+          <iconset>
+           <normaloff>src/raw.png</normaloff>src/raw.png</iconset>
+         </property>
+        </item>
+       </widget>
       </item>
      </layout>
     </item>
-    <item row="1" column="0">
-     <layout class="QHBoxLayout" name="buttons">
+    <item row="1" column="1">
+     <layout class="QHBoxLayout" name="linkButtons">
       <item>
-       <widget class="QPushButton" name="penButton">
+       <widget class="QPushButton" name="prevButton">
+        <property name="font">
+         <font>
+          <pointsize>11</pointsize>
+          <weight>50</weight>
+          <bold>false</bold>
+          <kerning>true</kerning>
+         </font>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">color: rgba(0, 0, 255, 200);
+</string>
+        </property>
         <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset>
-          <normaloff>img/enpitsu.png</normaloff>img/enpitsu.png</iconset>
-        </property>
-        <property name="default">
-         <bool>false</bool>
+         <string>← Previous</string>
         </property>
         <property name="flat">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
        </widget>
       </item>
       <item>
-       <widget class="QPushButton" name="keshiButton">
+       <widget class="QPushButton" name="nextButton">
+        <property name="font">
+         <font>
+          <pointsize>11</pointsize>
+         </font>
+        </property>
+        <property name="focusPolicy">
+         <enum>Qt::NoFocus</enum>
+        </property>
+        <property name="styleSheet">
+         <string notr="true">color: rgba(0, 0, 255, 200);</string>
+        </property>
         <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset>
-          <normaloff>img/keshi.png</normaloff>img/keshi.png</iconset>
-        </property>
-        <property name="default">
-         <bool>false</bool>
+         <string>Next →</string>
         </property>
         <property name="flat">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="handButton">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset>
-          <normaloff>img/drag.png</normaloff>img/drag.png</iconset>
-        </property>
-        <property name="default">
-         <bool>false</bool>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="zoomButton">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset>
-          <normaloff>img/zoom.png</normaloff>img/zoom.png</iconset>
-        </property>
-        <property name="default">
-         <bool>false</bool>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
-        </property>
-       </widget>
-      </item>
-      <item>
-       <widget class="QPushButton" name="unzoomButton">
-        <property name="text">
-         <string/>
-        </property>
-        <property name="icon">
-         <iconset>
-          <normaloff>img/unzoom.png</normaloff>img/unzoom.png</iconset>
-        </property>
-        <property name="default">
-         <bool>false</bool>
-        </property>
-        <property name="flat">
-         <bool>false</bool>
+         <bool>true</bool>
         </property>
        </widget>
       </item>
@@ -361,7 +502,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>705</width>
+     <width>674</width>
      <height>22</height>
     </rect>
    </property>
@@ -385,6 +526,9 @@
    <property name="text">
     <string>Save as...</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="actionOpen_Previous">
    <property name="text">
@@ -395,10 +539,16 @@
    <property name="text">
     <string>Raw Image</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+O</string>
+   </property>
   </action>
   <action name="actionMasking_Image">
    <property name="text">
     <string>Masking Image</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
  </widget>
@@ -411,8 +561,8 @@
    <slot>setPen()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>32</x>
-     <y>161</y>
+     <x>42</x>
+     <y>253</y>
     </hint>
     <hint type="destinationlabel">
      <x>58</x>
@@ -424,11 +574,11 @@
    <sender>keshiButton</sender>
    <signal>clicked()</signal>
    <receiver>MainWindow</receiver>
-   <slot>setEraser()</slot>
+   <slot>erase()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>205</x>
-     <y>161</y>
+     <x>189</x>
+     <y>253</y>
     </hint>
     <hint type="destinationlabel">
      <x>62</x>
@@ -443,8 +593,8 @@
    <slot>zoom()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>407</x>
-     <y>161</y>
+     <x>374</x>
+     <y>253</y>
     </hint>
     <hint type="destinationlabel">
      <x>220</x>
@@ -459,8 +609,8 @@
    <slot>unzoom()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>508</x>
-     <y>161</y>
+     <x>467</x>
+     <y>253</y>
     </hint>
     <hint type="destinationlabel">
      <x>201</x>
@@ -508,7 +658,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>693</x>
-     <y>61</y>
+     <y>45</y>
     </hint>
     <hint type="destinationlabel">
      <x>607</x>
@@ -524,7 +674,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>693</x>
-     <y>85</y>
+     <y>69</y>
     </hint>
     <hint type="destinationlabel">
      <x>607</x>
@@ -540,7 +690,7 @@
    <hints>
     <hint type="sourcelabel">
      <x>693</x>
-     <y>109</y>
+     <y>93</y>
     </hint>
     <hint type="destinationlabel">
      <x>607</x>
@@ -571,8 +721,8 @@
    <slot>toggle_image()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>587</x>
-     <y>64</y>
+     <x>582</x>
+     <y>48</y>
     </hint>
     <hint type="destinationlabel">
      <x>483</x>
@@ -587,8 +737,8 @@
    <slot>toggle_image()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>587</x>
-     <y>88</y>
+     <x>582</x>
+     <y>72</y>
     </hint>
     <hint type="destinationlabel">
      <x>484</x>
@@ -603,8 +753,8 @@
    <slot>toggle_image()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>587</x>
-     <y>112</y>
+     <x>582</x>
+     <y>96</y>
     </hint>
     <hint type="destinationlabel">
      <x>485</x>
@@ -619,8 +769,8 @@
    <slot>hand()</slot>
    <hints>
     <hint type="sourcelabel">
-     <x>293</x>
-     <y>154</y>
+     <x>281</x>
+     <y>253</y>
     </hint>
     <hint type="destinationlabel">
      <x>310</x>
@@ -631,7 +781,7 @@
  </connections>
  <slots>
   <slot>setPen()</slot>
-  <slot>setEraser()</slot>
+  <slot>erase()</slot>
   <slot>zoom()</slot>
   <slot>unzoom()</slot>
   <slot>saveImage()</slot>
