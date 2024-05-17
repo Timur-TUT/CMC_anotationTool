@@ -22,7 +22,7 @@ class CMC:
         tl=(400, 550),  # 切り取り用(左上座標)
         br=(860, 650),
     ):  # 切り取り用(右下座標) おすすめ：br[0] = 810 or 860 or 945
-        s = re.search(r"(\d+)_SC", filename)  # 正規表現により画像の負荷を取得
+        s = re.search(r"(\d+)_(0deg_)?SC", filename)  # 正規表現により画像の負荷を取得
         self.id = s.group(1)  # 負荷レベルをIDとする
 
         # データの読み込み
@@ -231,6 +231,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     @pyqtSlot()
     def prevFile(self):
         if self.closeEvent():
+            self.total_scaling = 1  # リセット
             current_row = self.listWidget.currentRow()
             total_items = self.listWidget.count()
             try:
@@ -243,6 +244,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     @pyqtSlot()
     def nextFile(self):
         if self.closeEvent():
+            self.total_scaling = 1  # リセット
             current_row = self.listWidget.currentRow()
             total_items = self.listWidget.count()
             try:
@@ -296,11 +298,6 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                             cv2.IMREAD_GRAYSCALE,
                         )  # グレースケールで読み込む
                         height, width = _img.shape  # 画像サイズ
-                        image[np.where(self.ft_image > 100)] = [
-                            225,
-                            147,
-                            56,
-                        ]  # 明らかにき裂である画素をオレンジ色で表示
                         image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
 
                         q_image = QImage(
