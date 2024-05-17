@@ -7,5 +7,6 @@
     <file>src/mushimega.png</file>
     <file>src/unzoom.png</file>
     <file>src/zoom.png</file>
+    <file>src/raw.png</file>
   </qresource>
 </RCC>
