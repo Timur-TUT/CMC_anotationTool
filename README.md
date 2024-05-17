@@ -2,11 +2,18 @@
 
 This tool reads ".raw" files of CMC's SAXS images and assists in the creation of crack training data for machine learning. 
 
+このツールは、CMCの小角散乱画像の".raw "ファイルを読み込み、機械学習用のき裂教師データの作成を支援します。
+詳しい情報は "Anotation Tool 利用マニュアル.pdf" を確認してください。
+
 ## Description
 
 Raw images are read and frequency filtered to make the boundary between cracks and noise clearer than before, making it easier for the layperson to annotate cracks. In addition, if there are similar images or images to be continuously annotated, those image files can be loaded to improve work efficiency.
 
 ## Getting Started
+
+### EXE File
+
+If you just use the tool double click anotation_tool_gui.exe
 
 ### Dependencies
 
@@ -30,11 +37,11 @@ python action_tool_gui.py
 
 ## How To Use
 
-1. Open ".raw" image (Short Cut: "Ctrl + Shift + O")
-2. Open masking image if needed (Short Cut: "Ctrl + O")
+1. Open folder with ".raw" images (Short Cut: "Ctrl + O")
+2. Open a folder to save the images
 3. Use Filtered image for masking
 4. When finished, make final checks and minor corrections using Raw images
-5. Save image as ".png" file (Short Cut: "Ctrl + S")
+5. Press the arrow to move on to the next image
 
 | User Action    | Operation        |
 |---------------|-------------|
@@ -42,6 +49,7 @@ python action_tool_gui.py
 | Right Click   | Erase       |
 | Middle Click  | Drag        |
 | Middle Scroll | Zoom/Unzoom |
+| Tab | Show/Hide Canvas |
 
 ## Authors
 
