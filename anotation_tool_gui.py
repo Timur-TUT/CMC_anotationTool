@@ -14,6 +14,16 @@ from PyQt5.QtGui import *
 # .raw画像を読み込み、周波数フィルタリングを行い、データを管理するクラス
 class CMC:
 
+    @classmethod
+    def find_load(cls, fname):
+        s = re.search(
+            r"(\d+)(UL)?_(\d+)?[a-z]*_?SC", fname
+        )  # 正規表現により画像の負荷を取得
+        load = s.group(1)
+        deg = s.group(3) if s.group(3) else None
+
+        return load, deg
+
     def __init__(
         self,
         filename,  # .raw形式のデータファイル名
@@ -22,14 +32,18 @@ class CMC:
         tl=(400, 550),  # 切り取り用(左上座標)
         br=(860, 650),
     ):  # 切り取り用(右下座標) おすすめ：br[0] = 810 or 860 or 945
-        s = re.search(r"(\d+)_(0deg_)?SC", filename)  # 正規表現により画像の負荷を取得
-        self.id = s.group(1)  # 負荷レベルをIDとする
+
+        self.id, self.deg = CMC.find_load(filename)  # 負荷レベルと回転角を取得する
 
         # データの読み込み
         with open(filename, "rb") as f:
             rawdata = f.read()
-            data = np.frombuffer(rawdata, dtype=np.int16).reshape(w, h)
-            self.data = data[tl[1] : br[1], tl[0] : br[0]]
+            self.data = np.frombuffer(rawdata, dtype=np.int16).reshape(w, h)
+            if self.deg:
+                mat = cv2.getRotationMatrix2D((w / 2, h / 2), int(self.deg), 1.0)
+                self.data = cv2.warpAffine(self.data, mat, (w, h))
+            # self.data = data[500:700, 400:925]
+            # self.data = data[tl[1] : br[1], tl[0] : br[0]]
 
     # 配列の正規化(画像として表示することが可能)
     def normalize(self, array=None):
@@ -110,7 +124,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 return
 
             # ファイルをリストへ追加
-            for fname in sorted(raw_files):
+            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0])):
                 item = QListWidgetItem()
                 item.setText(fname)
                 item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
@@ -265,10 +279,10 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.closeEvent()  # 保存
 
         # CMCインスタンスを作成
-        try:
-            self.cmc = CMC(os.path.join(self.input_folder, current.text()))
-        except AttributeError:
-            return
+        # try:
+        self.cmc = CMC(os.path.join(self.input_folder, current.text()))
+        # except AttributeError:
+        # return
 
         # NumPy配列からQImageに変換
         raw_image = self.cmc.normalize()  # 正規化したraw画像
@@ -287,7 +301,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                     self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
                 ):
                     if f_name:
-                        previous_file = re.search(r"(\d+)_SC", f_name.text()).group(1)
+                        previous_file, _ = CMC.find_load(f_name.text())
                     try:
                         # 　現在開いているファイルと名前が一致する画像を開く
                         _img = cv2.imdecode(
@@ -508,4 +522,8 @@ ok・ディレクトリのファイルを全てまとめて開く(次へボタ�
 ok・ファイル一覧を表示する
 ok・画面を閉じる際に「保存しますか？」と聞く
 ・透明化はスライダーのみではなく、数字でも表示する
+・リストエリアでスクロールした場合も画像の拡大縮小が起きるバグの改善
+・画像の切り取りを内部では行わず、指示された画像をそのまま読み込む仕様に変更
+・ULとそうでないものを区別し、previousの読み込みを適切に行う
+・「Previous」ではなく、「Canvas」などのより適切な表示にする
 """
