@@ -20,9 +20,10 @@ class CMC:
             r"(\d+)(UL)?_(\d+)?[a-z]*_?SC", fname
         )  # 正規表現により画像の負荷を取得
         load = s.group(1)
+        option = "_" + s.group(2) if s.group(2) else ""
         # deg = s.group(3) if s.group(3) else None
 
-        return load
+        return load, option
 
     def __init__(
         self,
@@ -31,7 +32,7 @@ class CMC:
         h=1344,  # 画像データの高さ
     ):
 
-        self.id = CMC.find_load(filename)  # 負荷レベルと回転角を取得する
+        self.id, self.option = CMC.find_load(filename)  # 負荷レベルと回転角を取得する
         self.w, self.h = w, h
 
         # データの読み込み
@@ -118,7 +119,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 return
 
             # ファイルをリストへ追加
-            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x))):
+            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0])):
                 item = QListWidgetItem()
                 item.setText(fname)
                 item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
@@ -214,7 +215,10 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     # 画像を保存する際のスロット．メニューで ファイル＞Save から実行される
     @pyqtSlot()
     def saveImage(self):
-        filePath = os.path.join(self.output_folder, self.cmc.id + ".png")
+        filePath = os.path.join(
+            self.output_folder,
+            self.cmc.id + self.cmc.option + "_gt.png",
+        )
         img = self.qimage_to_cv(
             self.image_dict["previous"].pixmap().toImage()
         )  # qimageをndarrayに変換
@@ -286,40 +290,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous),
         ):
             if key == "previous":  # アノテーション画像の場合
-                current_row = self.listWidget.currentRow()
-                for f_name in (
-                    self.listWidget.currentItem(),  # 現在のファイルの.png
-                    self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
-                ):
-                    if f_name:
-                        previous_file = CMC.find_load(f_name.text())
-                    try:
-                        # 　現在開いているファイルと名前が一致する画像を開く
-                        _img = cv2.imdecode(
-                            np.fromfile(
-                                self.output_folder + "\\" + previous_file + ".png",
-                                dtype=np.uint8,
-                            ),
-                            cv2.IMREAD_GRAYSCALE,
-                        )  # グレースケールで読み込む
-                        image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
-
-                        q_image = QImage(
-                            image.copy(), width, height, width * 3, QImage.Format_RGB888
-                        )  # .copy()しないとエラーになる
-                        pixmap_item = QGraphicsPixmapItem(
-                            QPixmap.fromImage(q_image)
-                        )  # pixmapItemにすることで透明度の設定や表示・非表示が可能
-                        break  # 対象画像が見つかった時点で終了
-                    except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
-                        image[np.where(self.ft_image > 100)] = [
-                            225,
-                            147,
-                            56,
-                        ]  # 明らかにき裂である画素をオレンジ色で表示
-                        q_image = QImage(
-                            image.copy(), width, height, width * 3, QImage.Format_RGB888
-                        )
+                q_image = self.find_previous_png(image, height, width)
             else:  # rawやfiltered画像の処理
                 q_image = QImage(
                     image.copy(),
@@ -336,6 +307,43 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 pixmap_item.setOpacity(0.3)  # 透明度の設定
             self.scene.addItem(pixmap_item)  # 画像の表示
             self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)  # サイズ調整
+
+    def find_previous_png(self, image, height, width):
+        previous_item = self.listWidget.item(self.listWidget.currentRow() - 2)
+        previous_load = CMC.find_load(previous_item.text())[0] if previous_item else ""
+
+        file_list = [
+            f"{self.cmc.id}{self.cmc.option}_gt.png",
+            f"{previous_load}_gt.png",
+        ]
+        ct = 0
+
+        for f_name in file_list:
+            full_name = self.output_folder + "\\" + f_name
+            try:
+                # 　現在開いているファイルと名前が一致する画像を開く
+                _img = cv2.imdecode(
+                    np.fromfile(
+                        full_name,
+                        dtype=np.uint8,
+                    ),
+                    cv2.IMREAD_GRAYSCALE,
+                )  # グレースケールで読み込む
+                image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
+
+                break  # 対象画像が見つかった時点で終了
+            except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
+                ct += 1
+
+        if ct > 0:  # アノテーション済みの場合は自動アノテーションしない
+            image[np.where(self.ft_image > 100)] = [
+                225,
+                147,
+                56,
+            ]  # 明らかにき裂である画素をオレンジ色で表示
+        q_image = QImage(image.copy(), width, height, width * 3, QImage.Format_RGB888)
+
+        return q_image
 
     # エラーダイアログを表示するメソッド
     def show_error_dialog(self, error_message):
@@ -461,17 +469,18 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
     # 中ボタン(ホイール)回転イベント
     def wheelEvent(self, event):
-        numDegrees = event.angleDelta().y() / 8
-        numSteps = numDegrees / 15
-        self.numScheduledScalings += numSteps
-        if self.numScheduledScalings * numSteps < 0:
-            self.numScheduledScalings = numSteps
-        # アニメーションとすることでスムーズな拡大縮小が可能
-        self.scale_animation = QTimeLine(350, self)
-        self.scale_animation.setUpdateInterval(20)
-        self.scale_animation.valueChanged.connect(self.scalingTime)
-        self.scale_animation.finished.connect(self.animFinished)
-        self.scale_animation.start()
+        if self.imageViewer.geometry().contains(self.mapFromGlobal(event.globalPos())):
+            numDegrees = event.angleDelta().y() / 8
+            numSteps = numDegrees / 15
+            self.numScheduledScalings += numSteps
+            if self.numScheduledScalings * numSteps < 0:
+                self.numScheduledScalings = numSteps
+            # アニメーションとすることでスムーズな拡大縮小が可能
+            self.scale_animation = QTimeLine(350, self)
+            self.scale_animation.setUpdateInterval(20)
+            self.scale_animation.valueChanged.connect(self.scalingTime)
+            self.scale_animation.finished.connect(self.animFinished)
+            self.scale_animation.start()
 
     # 画像拡大をアニメーションによってスムーズに行うメソッド
     def scalingTime(self, x):
@@ -520,7 +529,8 @@ ok・ファイル一覧を表示する
 ok・画面を閉じる際に「保存しますか？」と聞く
 ・透明化はスライダーのみではなく、数字でも表示する
 ・リストエリアでスクロールした場合も画像の拡大縮小が起きるバグの改善
-・画像の切り取りを内部では行わず、指示された画像をそのまま読み込む仕様に変更
+ok・画像の切り取りを内部では行わず、指示された画像をそのまま読み込む仕様に変更
 ・ULとそうでないものを区別し、previousの読み込みを適切に行う
 ・「Previous」ではなく、「Canvas」などのより適切な表示にする
+・筆の大きさを変えられるようにする
 """
