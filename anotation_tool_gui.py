@@ -20,30 +20,24 @@ class CMC:
             r"(\d+)(UL)?_(\d+)?[a-z]*_?SC", fname
         )  # 正規表現により画像の負荷を取得
         load = s.group(1)
-        deg = s.group(3) if s.group(3) else None
+        # deg = s.group(3) if s.group(3) else None
 
-        return load, deg
+        return load
 
     def __init__(
         self,
         filename,  # .raw形式のデータファイル名
         w=1344,  # 画像データの幅
         h=1344,  # 画像データの高さ
-        tl=(400, 550),  # 切り取り用(左上座標)
-        br=(860, 650),
-    ):  # 切り取り用(右下座標) おすすめ：br[0] = 810 or 860 or 945
+    ):
 
-        self.id, self.deg = CMC.find_load(filename)  # 負荷レベルと回転角を取得する
+        self.id = CMC.find_load(filename)  # 負荷レベルと回転角を取得する
+        self.w, self.h = w, h
 
         # データの読み込み
         with open(filename, "rb") as f:
             rawdata = f.read()
-            self.data = np.frombuffer(rawdata, dtype=np.int16).reshape(w, h)
-            if self.deg:
-                mat = cv2.getRotationMatrix2D((w / 2, h / 2), int(self.deg), 1.0)
-                self.data = cv2.warpAffine(self.data, mat, (w, h))
-            # self.data = data[500:700, 400:925]
-            # self.data = data[tl[1] : br[1], tl[0] : br[0]]
+            self.data = np.frombuffer(rawdata, dtype=np.int16).reshape(h, w)
 
     # 配列の正規化(画像として表示することが可能)
     def normalize(self, array=None):
@@ -60,7 +54,7 @@ class CMC:
         # 画像の中心に低周波数の成分がくるように並べかえる
         shifted_ft = np.fft.fftshift(f_transformed)
         # フィルターをかける
-        shifted_ft[:, 230 - r : 230 + r] = 0
+        shifted_ft[:, self.w // 2 - r : self.w // 2 + r] = 0
 
         # 元通りに並び替える
         data2invert = np.fft.ifftshift(shifted_ft)
@@ -124,7 +118,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 return
 
             # ファイルをリストへ追加
-            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0])):
+            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x))):
                 item = QListWidgetItem()
                 item.setText(fname)
                 item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
@@ -279,10 +273,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.closeEvent()  # 保存
 
         # CMCインスタンスを作成
-        # try:
-        self.cmc = CMC(os.path.join(self.input_folder, current.text()))
-        # except AttributeError:
-        # return
+        self.cmc = CMC(os.path.join(self.input_folder, current.text()), 574, 130)
 
         # NumPy配列からQImageに変換
         raw_image = self.cmc.normalize()  # 正規化したraw画像
@@ -301,7 +292,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                     self.listWidget.item(current_row - 1),  # ひとつ前のファイルの.png
                 ):
                     if f_name:
-                        previous_file, _ = CMC.find_load(f_name.text())
+                        previous_file = CMC.find_load(f_name.text())
                     try:
                         # 　現在開いているファイルと名前が一致する画像を開く
                         _img = cv2.imdecode(
@@ -311,11 +302,10 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                             ),
                             cv2.IMREAD_GRAYSCALE,
                         )  # グレースケールで読み込む
-                        height, width = _img.shape  # 画像サイズ
                         image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
 
                         q_image = QImage(
-                            image.copy(), width, height, QImage.Format_RGB888
+                            image.copy(), width, height, width * 3, QImage.Format_RGB888
                         )  # .copy()しないとエラーになる
                         pixmap_item = QGraphicsPixmapItem(
                             QPixmap.fromImage(q_image)
@@ -328,10 +318,16 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                             56,
                         ]  # 明らかにき裂である画素をオレンジ色で表示
                         q_image = QImage(
-                            image.copy(), width, height, QImage.Format_RGB888
+                            image.copy(), width, height, width * 3, QImage.Format_RGB888
                         )
             else:  # rawやfiltered画像の処理
-                q_image = QImage(image.copy(), width, height, QImage.Format_Grayscale8)
+                q_image = QImage(
+                    image.copy(),
+                    width,
+                    height,
+                    width,
+                    QImage.Format_Grayscale8,
+                )
 
             pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image))
             self.image_dict[key] = pixmap_item  # 辞書に画像を登録
@@ -364,6 +360,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                     x, y, QColor(0, 0, 0)
                 )  # クリックしたピクセルを黒くする
             elif event.buttons() & Qt.LeftButton:  # 左クリック
+                print("click")
                 image.setPixelColor(
                     x, y, QColor(225, 147, 56)
                 )  # クリックしたピクセルをオレンジに

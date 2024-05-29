@@ -39,9 +39,11 @@ if __name__ == "__main__":
     # ex_1
     # tl=(392, 532)  # 切り取り用(左上座標)
     # br=(966, 662)  # 切り取り用(右下座標)
+    # w, h = (574, 130)
     # ex_3
     tl = (341, 514)
     br = (976, 702)
+    # w, h = (635, 188)
 
     raw_files = [
         file for file in os.listdir(input_folder) if file.endswith(".raw")
@@ -49,4 +51,4 @@ if __name__ == "__main__":
     for raw in raw_files:
         cmc = CMC(input_folder + raw)
         # cmc.rotate(15, output_folder)
-        cmc.crop(tl, br, output_folder)
+        # cmc.crop(tl, br, output_folder)
