@@ -107,6 +107,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
         if self.input_folder:
             print(f"Input folder: {self.input_folder}")
+            self.first_load = True  # 初めての読み込みのフラグ
             self.listWidget.clear()  # 読み込み済みのファイルがあればクリア
             for item in self.imageViewer.items():  # すべての画像をクリア
                 self.scene.removeItem(item)
@@ -275,9 +276,13 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     # リストのアイテムを読み込むメソッド
     def load(self, current):
         self.closeEvent()  # 保存
+        self.scene.clear()
 
         # CMCインスタンスを作成
+        # ex_1
         self.cmc = CMC(os.path.join(self.input_folder, current.text()), 574, 130)
+        # ex_3
+        # self.cmc = CMC(os.path.join(self.input_folder, current.text()), 635, 188)
 
         # NumPy配列からQImageに変換
         raw_image = self.cmc.normalize()  # 正規化したraw画像
@@ -302,11 +307,16 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
             pixmap_item = QGraphicsPixmapItem(QPixmap.fromImage(q_image))
             self.image_dict[key] = pixmap_item  # 辞書に画像を登録
-            cb.setChecked(True)  # チェックボックスの更新
             if key == "previous":
                 pixmap_item.setOpacity(0.3)  # 透明度の設定
             self.scene.addItem(pixmap_item)  # 画像の表示
+            if self.first_load:
+                cb.setChecked(True)  # チェックボックスの更新
+            else:
+                pixmap_item.setVisible(cb.isChecked())
             self.imageViewer.fitInView(pixmap_item, Qt.KeepAspectRatio)  # サイズ調整
+
+        self.first_load = False  # 次回のロードからは今のチェックボックス状態に依存
 
     def find_previous_png(self, image, height, width):
         previous_item = self.listWidget.item(self.listWidget.currentRow() - 2)
@@ -368,7 +378,6 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                     x, y, QColor(0, 0, 0)
                 )  # クリックしたピクセルを黒くする
             elif event.buttons() & Qt.LeftButton:  # 左クリック
-                print("click")
                 image.setPixelColor(
                     x, y, QColor(225, 147, 56)
                 )  # クリックしたピクセルをオレンジに
@@ -423,12 +432,18 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         if event.key() == Qt.Key_Tab:
             self.toggle_image(True, "previous")  # 表示
             self.checkBox_Previous.setChecked(True)
+        if event.key() == Qt.Key_Q:
+            self.toggle_image(True, "filtered")  # 表示
+            self.checkBox_Filtered.setChecked(True)
 
     # タブキーがリリースされた場合の処理
     def keyReleaseEvent(self, event):
         if event.key() == Qt.Key_Tab:
             self.toggle_image(False, "previous")  # 非表示
             self.checkBox_Previous.setChecked(False)
+        if event.key() == Qt.Key_Q:
+            self.toggle_image(False, "filtered")  # 表示
+            self.checkBox_Filtered.setChecked(False)
 
     # マウスクリックイベント
     def mousePressEvent(self, event):
@@ -527,10 +542,13 @@ ok・tabボタンでmasking画像の表示/非表示
 ok・ディレクトリのファイルを全てまとめて開く(次へボタンを開く)
 ok・ファイル一覧を表示する
 ok・画面を閉じる際に「保存しますか？」と聞く
-・透明化はスライダーのみではなく、数字でも表示する
-・リストエリアでスクロールした場合も画像の拡大縮小が起きるバグの改善
+ok・リストエリアでスクロールした場合も画像の拡大縮小が起きるバグの改善
 ok・画像の切り取りを内部では行わず、指示された画像をそのまま読み込む仕様に変更
-・ULとそうでないものを区別し、previousの読み込みを適切に行う
+ok・ULとそうでないものを区別し、previousの読み込みを適切に行う
+ok・Qキーでフィルター画像を表示/非表示
+ok・チェックボックスや透明度の設定は次の画像になっても保存する
+・ゼロ負荷時の画像との差分をとってからフーリエフィルターをかける
+・透明化はスライダーのみではなく、数字でも表示する
 ・「Previous」ではなく、「Canvas」などのより適切な表示にする
 ・筆の大きさを変えられるようにする
 """
