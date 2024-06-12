@@ -39,6 +39,9 @@ class CMC:
         with open(filename, "rb") as f:
             rawdata = f.read()
             self.data = np.frombuffer(rawdata, dtype=np.int16).reshape(h, w)
+            self.denoised_data = cv2.fastNlMeansDenoising(
+                self.normalize(), None, 10, 7, 21
+            )
 
     # 配列の正規化(画像として表示することが可能)
     def normalize(self, array=None):
@@ -48,9 +51,10 @@ class CMC:
         return normalized_data.astype(np.uint8)
 
     # フーリエ変換
-    def fourier_transform(self, r=14):
+    def fourier_filter(self, r=14):
         # 2次元高速フーリエ変換で周波数領域の情報を取り出す
-        f_transformed = np.fft.fft2(self.data)
+        # f_transformed = np.fft.fft2(self.data)
+        f_transformed = np.fft.fft2(self.denoised_data)
 
         # 画像の中心に低周波数の成分がくるように並べかえる
         shifted_ft = np.fft.fftshift(f_transformed)
@@ -90,6 +94,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         # 画像表示用のシーンの準備
         self.scene = QGraphicsScene(self)
         self.imageViewer.setScene(self.scene)
+        self.diameter = 1
 
         # 初期状態設定
         self._hand = False
@@ -286,7 +291,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
         # NumPy配列からQImageに変換
         raw_image = self.cmc.normalize()  # 正規化したraw画像
-        self.ft_image = self.cmc.fourier_transform()  # フーリエ変換のフィルター画像
+        self.ft_image = self.cmc.fourier_filter()  # フーリエ変換のフィルター画像
         height, width = raw_image.shape  # 画像サイズ
 
         for key, image, cb in zip(  # キー・画像・チェックボックス
@@ -374,9 +379,29 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         if 0 <= x < image.width() and 0 <= y < image.height():  # 画像内のクリックのみ
             self.change_count += 1
             if event.buttons() & Qt.RightButton:  # 右クリック
-                image.setPixelColor(
-                    x, y, QColor(0, 0, 0)
-                )  # クリックしたピクセルを黒くする
+                if self.diameter > 1:
+                    # 削除する円の範囲
+                    painter = QPainter(image)
+                    painter.setPen(
+                        QPen(
+                            QColor(0, 0, 0), 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin
+                        )
+                    )
+                    painter.setBrush(QColor(0, 0, 0))
+
+                    # 中心座標(x, y)に直径(diameter)の円を描く
+                    painter.drawEllipse(
+                        x - self.diameter // 2,
+                        y - self.diameter // 2,
+                        self.diameter,
+                        self.diameter,
+                    )
+                    painter.end()
+
+                else:
+                    image.setPixelColor(
+                        x, y, QColor(0, 0, 0)
+                    )  # クリックしたピクセルを黒くする
             elif event.buttons() & Qt.LeftButton:  # 左クリック
                 image.setPixelColor(
                     x, y, QColor(225, 147, 56)
@@ -435,6 +460,14 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         if event.key() == Qt.Key_Q:
             self.toggle_image(True, "filtered")  # 表示
             self.checkBox_Filtered.setChecked(True)
+
+        # キーボードの1～3キーで削除領域の直径を変更
+        if event.key() == Qt.Key_1:
+            self.diameter = 1
+        elif event.key() == Qt.Key_2:
+            self.diameter = 4
+        elif event.key() == Qt.Key_3:
+            self.diameter = 8
 
     # タブキーがリリースされた場合の処理
     def keyReleaseEvent(self, event):
@@ -542,6 +575,8 @@ ok・tabボタンでmasking画像の表示/非表示
 ok・ディレクトリのファイルを全てまとめて開く(次へボタンを開く)
 ok・ファイル一覧を表示する
 ok・画面を閉じる際に「保存しますか？」と聞く
+
+5/23～
 ok・リストエリアでスクロールした場合も画像の拡大縮小が起きるバグの改善
 ok・画像の切り取りを内部では行わず、指示された画像をそのまま読み込む仕様に変更
 ok・ULとそうでないものを区別し、previousの読み込みを適切に行う
@@ -551,4 +586,5 @@ ok・チェックボックスや透明度の設定は次の画像になっても
 ・透明化はスライダーのみではなく、数字でも表示する
 ・「Previous」ではなく、「Canvas」などのより適切な表示にする
 ・筆の大きさを変えられるようにする
+・電極部分は基準画像からの差分で自動削除を行うようにする
 """
