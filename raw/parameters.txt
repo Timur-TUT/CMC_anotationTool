@@ -1,0 +1,7 @@
+raw image size
+self.w = ??
+self.h = ??
+
+raw image range
+self.min = ??
+self.max = ??

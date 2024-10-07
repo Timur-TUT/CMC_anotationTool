@@ -1,0 +1,12 @@
+raw image size
+self.w = 632
+self.h = 188
+
+rotation
+15deg
+crop cordinates
+(342,514) ⇒ (974,702)
+
+raw image range
+self.min = 157
+self.max = 577

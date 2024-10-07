@@ -9,6 +9,46 @@ from anotation_tool_ui import Ui_MainWindow
 from PyQt5.QtCore import *
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
+from scipy import ndimage
+
+ORANGE = [225, 147, 56]
+RED = [255, 0, 0]
+BLACK = [0, 0, 0]
+
+
+# 配列の正規化(画像として表示することが可能)
+def normalize(array, box=None, value_range=None):
+    """配列を正規化し，画像として表示することを可能にする
+
+    Args:
+        array (ndarray): 正規化したい配列
+        box (tuple, optional): 注目領域の指定．この領域の最小最大値によって正規化される．順番は(左上, 右下)，形式は((y,x),(y,x)). Defaults to None.
+        range (tuple, optional): 最小最大値の指定．この範囲で正規化される．boxも入力されている場合，そちらが優先される. Defaults to None.
+
+    Returns:
+        ndarray: 正規化された画像.
+    """
+    if box:
+        tl, br = box
+        _min = array[tl[0] : br[0], tl[1] : br[1]].min()
+        _max = array[tl[0] : br[0], tl[1] : br[1]].max()
+    elif value_range:
+        _min, _max = value_range
+    else:
+        _min, _max = array.min(), array.max()
+
+    normalized_data = ((array - _min) / (_max - _min)) * 255
+    normalized_data = np.clip(normalized_data, 0, 255)
+
+    return normalized_data.astype(np.uint8)
+
+
+def auto_canny(image, sigma=0.33):
+    med = np.median(image)
+    th1 = int(max(0, (1 - sigma) * med))
+    th2 = int(max(255, (1 + sigma) * med))
+    canny = cv2.Canny(image, th1, th2, True)
+    return canny
 
 
 # .raw画像を読み込み、周波数フィルタリングを行い、データを管理するクラス
@@ -39,22 +79,22 @@ class CMC:
         with open(filename, "rb") as f:
             rawdata = f.read()
             self.data = np.frombuffer(rawdata, dtype=np.int16).reshape(h, w)
-            self.denoised_data = cv2.fastNlMeansDenoising(
-                self.normalize(), None, 10, 7, 21
-            )
+            self.fourier_filter()
+            self.extract_edge()
 
-    # 配列の正規化(画像として表示することが可能)
-    def normalize(self, array=None):
-        if array is None:
-            array = self.data
-        normalized_data = (array - array.min()) / (array.max() - array.min()) * 255
-        return normalized_data.astype(np.uint8)
+    def extract_edge(self):
+        xray_image_laplace_gaussian = ndimage.gaussian_laplace(self.data, sigma=1)
+        denoised_data = cv2.fastNlMeansDenoising(
+            normalize(xray_image_laplace_gaussian), None, 10, 7, 21
+        )
+        dst = auto_canny(denoised_data, 0.6)
+        kernel = np.ones((3, 3), np.uint8)
+        self.edge = cv2.morphologyEx(dst, cv2.MORPH_CLOSE, kernel)
 
     # フーリエ変換
-    def fourier_filter(self, r=14):
+    def fourier_filter(self, r=9):
         # 2次元高速フーリエ変換で周波数領域の情報を取り出す
-        # f_transformed = np.fft.fft2(self.data)
-        f_transformed = np.fft.fft2(self.denoised_data)
+        f_transformed = np.fft.fft2(self.data)
 
         # 画像の中心に低周波数の成分がくるように並べかえる
         shifted_ft = np.fft.fftshift(f_transformed)
@@ -64,9 +104,7 @@ class CMC:
         # 元通りに並び替える
         data2invert = np.fft.ifftshift(shifted_ft)
         # 逆フーリエ変換
-        self.inverted_data = np.abs(np.fft.ifft2(data2invert))
-
-        return self.normalize(self.inverted_data)
+        self.filtered = normalize(np.abs(np.fft.ifft2(data2invert)))
 
 
 # ツールのクラス
@@ -124,8 +162,26 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 self.show_error_dialog("There are no '.raw' files in that directory")
                 return
 
+            # 必要なパラメータをparameters.txtから読み込む
+            with open(
+                os.path.join(self.input_folder, "parameters.txt"),
+                mode="r",
+                encoding="utf-8",
+            ) as f:
+                for line in f:
+                    line = line.strip()  # 前後の空白や改行を削除
+                    if "=" in line:
+                        exec(line)
+
             # ファイルをリストへ追加
-            for fname in sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0])):
+            for i, fname in enumerate(
+                sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0]))
+            ):
+                # base imageを作成
+                if i == 1:
+                    self.base_edge = CMC(
+                        os.path.join(self.input_folder, fname), self.w, self.h
+                    ).edge
                 item = QListWidgetItem()
                 item.setText(fname)
                 item.setTextAlignment(Qt.AlignLeading | Qt.AlignVCenter)
@@ -282,16 +338,17 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
     def load(self, current):
         self.closeEvent()  # 保存
         self.scene.clear()
+        self.total_scaling = 1  # リセット
 
         # CMCインスタンスを作成
-        # ex_1
-        self.cmc = CMC(os.path.join(self.input_folder, current.text()), 574, 130)
-        # ex_3
-        # self.cmc = CMC(os.path.join(self.input_folder, current.text()), 635, 188)
-
         # NumPy配列からQImageに変換
-        raw_image = self.cmc.normalize()  # 正規化したraw画像
-        self.ft_image = self.cmc.fourier_filter()  # フーリエ変換のフィルター画像
+        self.cmc = CMC(os.path.join(self.input_folder, current.text()), self.w, self.h)
+        raw_image = normalize(
+            self.cmc.data, value_range=(self.min, self.max)
+        )  # 正規化したraw画像
+
+        self.ft_image = self.cmc.filtered  # フーリエ変換のフィルター画像
+
         height, width = raw_image.shape  # 画像サイズ
 
         for key, image, cb in zip(  # キー・画像・チェックボックス
@@ -324,38 +381,43 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         self.first_load = False  # 次回のロードからは今のチェックボックス状態に依存
 
     def find_previous_png(self, image, height, width):
-        previous_item = self.listWidget.item(self.listWidget.currentRow() - 2)
+        previous_item = self.listWidget.item(self.listWidget.currentRow() - 1)
         previous_load = CMC.find_load(previous_item.text())[0] if previous_item else ""
 
         file_list = [
             f"{self.cmc.id}{self.cmc.option}_gt.png",
             f"{previous_load}_gt.png",
         ]
-        ct = 0
 
-        for f_name in file_list:
+        for i, f_name in enumerate(file_list):
             full_name = self.output_folder + "\\" + f_name
             try:
                 # 　現在開いているファイルと名前が一致する画像を開く
+                # グレースケールで読み込む
                 _img = cv2.imdecode(
                     np.fromfile(
                         full_name,
                         dtype=np.uint8,
                     ),
                     cv2.IMREAD_GRAYSCALE,
-                )  # グレースケールで読み込む
-                image[np.where(_img == 255)] = [255, 0, 0]  # 赤色で表示
-
+                )
+                if i != 0:
+                    # 明らかにき裂である画素をオレンジ色で表示
+                    ft_image = np.copy(self.ft_image)
+                    ft_image[self.cmc.edge < 128] = 0
+                    image[ft_image > 20] = ORANGE
+                    image[self.base_edge > 0] = BLACK
+                image[np.where(_img == 255)] = RED  # 赤色で表示
                 break  # 対象画像が見つかった時点で終了
             except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
-                ct += 1
+                pass
 
-        if ct > 0:  # アノテーション済みの場合は自動アノテーションしない
-            image[np.where(self.ft_image > 100)] = [
-                225,
-                147,
-                56,
-            ]  # 明らかにき裂である画素をオレンジ色で表示
+        else:  # アノテーション済みの場合は自動アノテーションしない
+            ft_image = np.copy(self.ft_image)
+            ft_image[self.cmc.edge < 128] = 0
+            image[ft_image > 20] = ORANGE
+            image[self.base_edge > 0] = BLACK
+
         q_image = QImage(image.copy(), width, height, width * 3, QImage.Format_RGB888)
 
         return q_image
@@ -585,6 +647,7 @@ ok・チェックボックスや透明度の設定は次の画像になっても
 ・ゼロ負荷時の画像との差分をとってからフーリエフィルターをかける
 ・透明化はスライダーのみではなく、数字でも表示する
 ・「Previous」ではなく、「Canvas」などのより適切な表示にする
-・筆の大きさを変えられるようにする
-・電極部分は基準画像からの差分で自動削除を行うようにする
+ok・筆の大きさを変えられるようにする
+ok・電極部分は基準画像からの差分で自動削除を行うようにする
+ok・パラメータファイルを読み込むことで手入力の数値を無くす
 """
