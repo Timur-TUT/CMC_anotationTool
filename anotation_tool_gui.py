@@ -407,6 +407,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                     ft_image[self.cmc.edge < 128] = 0
                     image[ft_image > 20] = ORANGE
                     image[self.base_edge > 0] = BLACK
+                    image[self.cmc.data < np.percentile(self.cmc.data, 75)] = BLACK
                 image[np.where(_img == 255)] = RED  # 赤色で表示
                 break  # 対象画像が見つかった時点で終了
             except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
@@ -417,6 +418,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             ft_image[self.cmc.edge < 128] = 0
             image[ft_image > 20] = ORANGE
             image[self.base_edge > 0] = BLACK
+            image[self.cmc.data < np.percentile(self.cmc.data, 75)] = BLACK
 
         q_image = QImage(image.copy(), width, height, width * 3, QImage.Format_RGB888)
 
@@ -522,6 +524,11 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
         if event.key() == Qt.Key_Q:
             self.toggle_image(True, "filtered")  # 表示
             self.checkBox_Filtered.setChecked(True)
+
+        if event.key() == Qt.Key_B:
+            self.prevFile()
+        elif event.key() == Qt.Key_N:
+            self.nextFile()
 
         # キーボードの1～3キーで削除領域の直径を変更
         if event.key() == Qt.Key_1:

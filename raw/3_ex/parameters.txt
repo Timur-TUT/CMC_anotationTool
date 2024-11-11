@@ -8,5 +8,5 @@ crop cordinates
 (342,514) ⇒ (974,702)
 
 raw image range
-self.min = 157
-self.max = 577
+self.min = 113
+self.max = 368
