@@ -347,7 +347,21 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             self.cmc.data, value_range=(self.min, self.max)
         )  # 正規化したraw画像
 
-        self.ft_image = self.cmc.filtered  # フーリエ変換のフィルター画像
+        # 現在のアイテムの一つ上のアイテムの取得
+        next_row = self.listWidget.currentRow() + 1
+        if next_row < self.listWidget.count():
+            prev_item = self.listWidget.item(next_row)  # 一つ上のアイテム
+            prev_cmc = CMC(
+                os.path.join(self.input_folder, prev_item.text()), self.w, self.h
+            )
+            self.ft_image = normalize(prev_cmc.data, value_range=(self.min, self.max))
+        else:
+            # self.ft_image = self.cmc.filtered  # フーリエ変換のフィルター画像
+            prev_item = self.listWidget.item(next_row - 2)  # 一つ下のアイテム
+            prev_cmc = CMC(
+                os.path.join(self.input_folder, prev_item.text()), self.w, self.h
+            )
+            self.ft_image = normalize(prev_cmc.data, value_range=(self.min, self.max))
 
         height, width = raw_image.shape  # 画像サイズ
 
@@ -467,9 +481,32 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                         x, y, QColor(0, 0, 0)
                     )  # クリックしたピクセルを黒くする
             elif event.buttons() & Qt.LeftButton:  # 左クリック
-                image.setPixelColor(
-                    x, y, QColor(225, 147, 56)
-                )  # クリックしたピクセルをオレンジに
+                if self.diameter > 1:
+                    # 描画する円の範囲
+                    painter = QPainter(image)
+                    painter.setPen(
+                        QPen(
+                            QColor(225, 147, 56),
+                            1,
+                            Qt.SolidLine,
+                            Qt.RoundCap,
+                            Qt.RoundJoin,
+                        )
+                    )
+                    painter.setBrush(QColor(225, 147, 56))
+
+                    # 中心座標(x, y)に直径(diameter)の円を描く
+                    painter.drawEllipse(
+                        x - self.diameter // 2,
+                        y - self.diameter // 2,
+                        self.diameter,
+                        self.diameter,
+                    )
+                    painter.end()
+                else:
+                    image.setPixelColor(
+                        x, y, QColor(225, 147, 56)
+                    )  # クリックしたピクセルをオレンジに
 
         # キャンバスの画像を QPixmap に変換して表示
         canvas_pixmap = QPixmap.fromImage(image)
@@ -657,4 +694,7 @@ ok・チェックボックスや透明度の設定は次の画像になっても
 ok・筆の大きさを変えられるようにする
 ok・電極部分は基準画像からの差分で自動削除を行うようにする
 ok・パラメータファイルを読み込むことで手入力の数値を無くす
+
+12/14～
+・電極部分のアノテーション画像を最初に作成．それを次の負荷画像からは自動で引く機能
 """
