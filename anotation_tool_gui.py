@@ -83,13 +83,22 @@ class CMC:
             self.extract_edge()
 
     def extract_edge(self):
-        xray_image_laplace_gaussian = ndimage.gaussian_laplace(self.data, sigma=1)
+        xray_image_laplace_gaussian = normalize(
+            ndimage.gaussian_laplace(self.data, sigma=1)
+        )
         denoised_data = cv2.fastNlMeansDenoising(
-            normalize(xray_image_laplace_gaussian), None, 10, 7, 21
+            xray_image_laplace_gaussian, None, 10, 7, 21
         )
         dst = auto_canny(denoised_data, 0.6)
         kernel = np.ones((3, 3), np.uint8)
         self.edge = cv2.morphologyEx(dst, cv2.MORPH_CLOSE, kernel)
+
+        # フィルタ後の画像確認用
+        # cv2.imwrite("fft.png", self.filtered)
+        # cv2.imwrite("log.png", xray_image_laplace_gaussian)
+        # cv2.imwrite("nlmeans.png", denoised_data)
+        # cv2.imwrite("canny.png", dst)
+        # cv2.imwrite("edge.png", self.edge)
 
     # フーリエ変換
     def fourier_filter(self, r=9):
@@ -178,7 +187,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 sorted(raw_files, key=lambda x: int(CMC.find_load(x)[0]))
             ):
                 # base imageを作成
-                if i == 1:
+                if i == 0:
                     self.base_edge = CMC(
                         os.path.join(self.input_folder, fname), self.w, self.h
                     ).edge
@@ -336,38 +345,40 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
 
     # リストのアイテムを読み込むメソッド
     def load(self, current):
-        self.closeEvent()  # 保存
+        self.closeEvent()
         self.scene.clear()
-        self.total_scaling = 1  # リセット
+        self.total_scaling = 1  # 拡大のリセット
 
-        # CMCインスタンスを作成
-        # NumPy配列からQImageに変換
+        # 選択中のファイルからCMCインスタンスを作成
         self.cmc = CMC(os.path.join(self.input_folder, current.text()), self.w, self.h)
         raw_image = normalize(
             self.cmc.data, value_range=(self.min, self.max)
         )  # 正規化したraw画像
 
-        # 現在のアイテムの一つ上のアイテムの取得
-        next_row = self.listWidget.currentRow() + 1
+        """フィルター画像を表示する機能を廃止，代わりに次の負荷の画像を表示する"""
+        # self.ft_image = self.cmc.filtered  # フーリエ変換のフィルター画像 ### 廃止
+
+        # 選択中のファイルの次負荷画像を読み込む
+        next_row = self.listWidget.currentRow() + 1  # 一個下のアイテム
         if next_row < self.listWidget.count():
-            prev_item = self.listWidget.item(next_row)  # 一つ上のアイテム
+            next_item = self.listWidget.item(next_row)
+            # 次負荷画像のCMCインスタンスを作成
+            next_cmc = CMC(
+                os.path.join(self.input_folder, next_item.text()), self.w, self.h
+            )
+            self.next_image = normalize(next_cmc.data, value_range=(self.min, self.max))
+        else:  # 次の画像がない場合は一個前の画像を表示する
+            prev_item = self.listWidget.item(next_row - 2)
             prev_cmc = CMC(
                 os.path.join(self.input_folder, prev_item.text()), self.w, self.h
             )
-            self.ft_image = normalize(prev_cmc.data, value_range=(self.min, self.max))
-        else:
-            # self.ft_image = self.cmc.filtered  # フーリエ変換のフィルター画像
-            prev_item = self.listWidget.item(next_row - 2)  # 一つ下のアイテム
-            prev_cmc = CMC(
-                os.path.join(self.input_folder, prev_item.text()), self.w, self.h
-            )
-            self.ft_image = normalize(prev_cmc.data, value_range=(self.min, self.max))
+            self.next_image = normalize(prev_cmc.data, value_range=(self.min, self.max))
 
         height, width = raw_image.shape  # 画像サイズ
 
         for key, image, cb in zip(  # キー・画像・チェックボックス
             self.image_dict,
-            (raw_image, self.ft_image, np.zeros((height, width, 3), dtype=np.uint8)),
+            (raw_image, self.next_image, np.zeros((height, width, 3), dtype=np.uint8)),
             (self.checkBox_Raw, self.checkBox_Filtered, self.checkBox_Previous),
         ):
             if key == "previous":  # アノテーション画像の場合
@@ -417,7 +428,7 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
                 )
                 if i != 0:
                     # 明らかにき裂である画素をオレンジ色で表示
-                    ft_image = np.copy(self.ft_image)
+                    ft_image = np.copy(self.cmc.filtered)
                     ft_image[self.cmc.edge < 128] = 0
                     image[ft_image > 20] = ORANGE
                     image[self.base_edge > 0] = BLACK
@@ -427,8 +438,8 @@ class AnotationApp(QMainWindow, Ui_MainWindow):
             except (UnboundLocalError, FileNotFoundError):  # ファイルがない場合
                 pass
 
-        else:  # アノテーション済みの場合は自動アノテーションしない
-            ft_image = np.copy(self.ft_image)
+        else:
+            ft_image = np.copy(self.cmc.filtered)
             ft_image[self.cmc.edge < 128] = 0
             image[ft_image > 20] = ORANGE
             image[self.base_edge > 0] = BLACK

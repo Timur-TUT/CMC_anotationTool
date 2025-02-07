@@ -1,7 +1,7 @@
 raw image size
-self.w = ??
-self.h = ??
+self.w = 574
+self.h = 130
 
 raw image range
-self.min = ??
-self.max = ??
+self.min = 254
+self.max = 612

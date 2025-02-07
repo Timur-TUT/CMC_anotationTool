@@ -1,10 +1,10 @@
 # Tool for annotating SAXS images of CMCs
 
-This tool reads ".raw" files of CMC's SAXS images and assists in the creation of crack training data for machine learning. 
+This tool reads ".raw" files of CMC's SAXS images and assists in the creation of crack training data for machine learning.
 
 ## Description
 
-Raw images are read and frequency filtered to make the boundary between cracks and noise clearer than before, making it easier for the layperson to annotate cracks. In addition, if there are similar images or images to be continuously annotated, those image files can be loaded to improve work efficiency.
+This tool automatically loads folders containing raw files. By comparing consecutive images, it becomes easier to distinguish between noise and cracks. Multiple image processing filters are applied to enhance automatic crack detection, reducing manual workload. Additionally, previously annotated areas are retained, preventing redundant work.
 
 ## Getting Started
 
@@ -16,39 +16,48 @@ Raw images are read and frequency filtered to make the boundary between cracks a
 
 ### Installing
 
-move to your repository
+Move to your repository
 ```
 git clone https://github.com/Timur-TUT/CMC_anotationTool.git
 ```
 
 ### Executing program
 
-* execute action_tool_gui.py
+* Execute anotation_tool_gui.py
 ```
-python action_tool_gui.py
+python anotation_tool_gui.py
 ```
 
 ## How To Use
 
-1. Open ".raw" image (Short Cut: "Ctrl + Shift + O")
-2. Open masking image if needed (Short Cut: "Ctrl + O")
-3. Use Filtered image for masking
-4. When finished, make final checks and minor corrections using Raw images
-5. Save image as ".png" file (Short Cut: "Ctrl + S")
+1. Press `Ctrl + O` to open a directory containing raw images.
+2. If necessary, specify a directory to save annotation images. If not specified, an "output" folder is created automatically.
+3. Use the `Q` key to check the next image and distinguish between noise and cracks.
+4. If needed, adjust the transparency of each image using the slider.
+5. Use the left mouse button to annotate crack areas.
+6. After finishing the annotation, select the next image. The save dialog will prompt you to confirm image saving.
 
-| User Action    | Operation        |
-|---------------|-------------|
-| Left Click    | Draw        |
-| Right Click   | Erase       |
-| Middle Click  | Drag        |
-| Middle Scroll | Zoom/Unzoom |
+| User Action    | Operation                             |
+|---------------|---------------------------------|
+| Left Click    | Annotate cracks                 |
+| Right Click   | Erase annotations               |
+| Scroll        | Zoom in/out                      |
+| Middle Click  | Drag to move the image          |
+| `1`, `2`, `3` | Change annotation radius size   |
+| `Tab`         | Toggle mask image visibility    |
+| `Q`           | Toggle next image visibility    |
+| `B`           | Select the previous image       |
+| `N`           | Select the next image           |
 
 ## Authors
 
-T. A. Khudayberganov
+T. A. Khudayberganov  
 [@Timur](g212300905@edu.teu.ac.jp)
 
 ## Version History
 
+* 1.0
+    * Major feature enhancements, including automatic folder loading, multi-image comparison, improved annotation retention, and various image processing filters.
+
 * 0.1
-    * Initial Release
+    * Initial Release.
