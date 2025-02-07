@@ -3,7 +3,6 @@
 This tool reads ".raw" files of CMC's SAXS images and assists in the creation of crack training data for machine learning.
 
 このツールは、CMCの小角散乱画像の".raw "ファイルを読み込み、機械学習用のき裂教師データの作成を支援します。
-詳しい情報は "Anotation Tool 利用マニュアル.pdf" を確認してください。
 
 ## Description
 
