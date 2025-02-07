@@ -2,11 +2,18 @@
 
 This tool reads ".raw" files of CMC's SAXS images and assists in the creation of crack training data for machine learning.
 
+このツールは、CMCの小角散乱画像の".raw "ファイルを読み込み、機械学習用のき裂教師データの作成を支援します。
+詳しい情報は "Anotation Tool 利用マニュアル.pdf" を確認してください。
+
 ## Description
 
 This tool automatically loads folders containing raw files. By comparing consecutive images, it becomes easier to distinguish between noise and cracks. Multiple image processing filters are applied to enhance automatic crack detection, reducing manual workload. Additionally, previously annotated areas are retained, preventing redundant work.
 
 ## Getting Started
+
+### EXE File
+
+If you just use the tool double click anotation_tool_gui.exe
 
 ### Dependencies
 
