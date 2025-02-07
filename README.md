@@ -10,10 +10,6 @@ This tool automatically loads folders containing raw files. By comparing consecu
 
 ## Getting Started
 
-### EXE File
-
-If you just use the tool double click anotation_tool_gui.exe
-
 ### Dependencies
 
 * PyQt5          | 5.15.7
