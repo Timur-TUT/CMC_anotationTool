@@ -58,8 +58,8 @@ T. A. Khudayberganov
 
 ## Version History
 
-* 1.0
+* 1.0 - February 7, 2025
     * Major feature enhancements, including automatic folder loading, multi-image comparison, improved annotation retention, and various image processing filters.
 
-* 0.1
+* 0.1 - May 18, 2024
     * Initial Release.
